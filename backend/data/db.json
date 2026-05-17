@@ -30130,6 +30130,18 @@
       "agentId": "dom",
       "agentNom": "Dom",
       "statut": "brouillon_agent"
+    },
+    {
+      "id": "ACT-1779047880123-9275",
+      "date": "2026-05-17T19:58:00.123Z",
+      "action": "connexion",
+      "userId": "dom"
+    },
+    {
+      "id": "ACT-1779049645005-1745",
+      "date": "2026-05-17T20:27:25.005Z",
+      "action": "connexion",
+      "userId": "dom"
     }
   ],
   "diagnosticTemplate": [
@@ -31111,6 +31123,18 @@
       "agentId": "dom",
       "agentNom": "Dom",
       "statut": "brouillon_agent"
+    },
+    {
+      "id": "ACT-1779047880123-9275",
+      "date": "2026-05-17T19:58:00.123Z",
+      "action": "connexion",
+      "userId": "dom"
+    },
+    {
+      "id": "ACT-1779049645005-1745",
+      "date": "2026-05-17T20:27:25.005Z",
+      "action": "connexion",
+      "userId": "dom"
     }
   ],
   "validations": [],
