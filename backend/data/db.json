@@ -30142,6 +30142,18 @@
       "date": "2026-05-17T20:27:25.005Z",
       "action": "connexion",
       "userId": "dom"
+    },
+    {
+      "id": "ACT-1779051278841-5209",
+      "date": "2026-05-17T20:54:38.842Z",
+      "action": "connexion",
+      "userId": "dom"
+    },
+    {
+      "id": "ACT-1779051947295-1481",
+      "date": "2026-05-17T21:05:47.295Z",
+      "action": "connexion",
+      "userId": "dom"
     }
   ],
   "diagnosticTemplate": [
@@ -31133,6 +31145,18 @@
     {
       "id": "ACT-1779049645005-1745",
       "date": "2026-05-17T20:27:25.005Z",
+      "action": "connexion",
+      "userId": "dom"
+    },
+    {
+      "id": "ACT-1779051278841-5209",
+      "date": "2026-05-17T20:54:38.842Z",
+      "action": "connexion",
+      "userId": "dom"
+    },
+    {
+      "id": "ACT-1779051947295-1481",
+      "date": "2026-05-17T21:05:47.295Z",
       "action": "connexion",
       "userId": "dom"
     }
@@ -53598,45 +53622,6 @@
       "autrePiece": "",
       "commentaire": "",
       "dateModification": "2026-05-17T18:11:38.050Z"
-    },
-    {
-      "id": "CFG-LTS-034-014",
-      "logementId": "LTS-034-014",
-      "typeLogementTheorique": "T2",
-      "configurationReelleConstatee": "",
-      "nombreChambres": 0,
-      "nombrePiecesSupplementaires": 0,
-      "sejour": true,
-      "cuisine": true,
-      "salleDeBain": true,
-      "wc": true,
-      "varangueTerrasse": false,
-      "dependance": false,
-      "cour": false,
-      "garageAbri": false,
-      "autrePiece": "",
-      "commentaire": "",
-      "dateModification": "2026-05-17T18:11:38.050Z"
-    },
-    {
-      "id": "CFG-LTS-034-015",
-      "logementId": "LTS-034-015",
-      "typeLogementTheorique": "T3",
-      "configurationReelleConstatee": "",
-      "nombreChambres": 0,
-      "nombrePiecesSupplementaires": 0,
-      "sejour": true,
-      "cuisine": true,
-      "salleDeBain": true,
-      "wc": true,
-      "varangueTerrasse": false,
-      "dependance": false,
-      "cour": false,
-      "garageAbri": false,
-      "autrePiece": "",
-      "commentaire": "",
-      "dateModification": "2026-05-17T18:11:38.050Z"
     }
-  ],
-  "pieces_logement": []
+  ]
 }
