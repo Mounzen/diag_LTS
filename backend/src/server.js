@@ -1337,6 +1337,105 @@ app.get('/api/exports/secteur/:secteur.pdf.legacy', (req, res) => {
   res.type('html').send(reportHtml(`Rapport secteur ${req.params.secteur}`, `<h1>Rapport secteur ${req.params.secteur}</h1><table><thead><tr><th>Logement</th><th>LTS</th><th>Adresse</th><th>Statut</th><th>Urgence</th><th>Budget</th></tr></thead><tbody>${rows}</tbody></table>`));
 });
 
+
+// ============================================================================
+// Devis (consultations entreprises)
+// ============================================================================
+
+const DEVIS_STATUTS = ['en_attente', 'recu', 'valide', 'refuse', 'realise'];
+
+function findDevis(db, id) {
+  return (db.devis || []).find((d) => d.id === id);
+}
+
+app.get('/api/devis', (req, res) => {
+  const db = loadDb();
+  let list = db.devis || [];
+  const { logementId, statut, entreprise } = req.query;
+  if (logementId) list = list.filter((d) => d.logementId === logementId);
+  if (statut) list = list.filter((d) => d.statut === statut);
+  if (entreprise) {
+    const needle = String(entreprise).toLowerCase();
+    list = list.filter((d) => String(d.entrepriseNom || '').toLowerCase().includes(needle));
+  }
+  list = [...list].sort((a, b) => String(b.dateDemande || b.createdAt || '').localeCompare(String(a.dateDemande || a.createdAt || '')));
+  res.json(list);
+});
+
+app.get('/api/devis/:id', (req, res) => {
+  const db = loadDb();
+  const devis = findDevis(db, req.params.id);
+  if (!devis) return res.status(404).json({ message: 'Devis introuvable' });
+  res.json(devis);
+});
+
+app.post('/api/devis', (req, res) => {
+  const db = loadDb();
+  const body = req.body || {};
+  if (!body.logementId) return res.status(400).json({ message: 'logementId requis' });
+  const logement = db.logements.find((l) => l.id === body.logementId);
+  if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+  if (!body.entrepriseNom) return res.status(400).json({ message: 'entrepriseNom requis' });
+  const statut = DEVIS_STATUTS.includes(body.statut) ? body.statut : 'en_attente';
+  const now = new Date().toISOString();
+  const devis = {
+    id: `DEV-${logement.id}-${Date.now()}`,
+    logementId: logement.id,
+    logementCode: logement.code_acces,
+    entrepriseNom: String(body.entrepriseNom).trim(),
+    entrepriseContact: String(body.entrepriseContact || '').trim(),
+    entrepriseTelephone: String(body.entrepriseTelephone || '').trim(),
+    entrepriseEmail: String(body.entrepriseEmail || '').trim(),
+    postes: Array.isArray(body.postes) ? body.postes : [],
+    montantHT: Number(body.montantHT || 0),
+    montantTTC: Number(body.montantTTC || 0),
+    dateDemande: body.dateDemande || now,
+    dateReception: body.dateReception || null,
+    dateValidation: body.dateValidation || null,
+    statut,
+    commentaire: String(body.commentaire || ''),
+    createdAt: now,
+    updatedAt: now,
+    createdBy: body.createdBy || null
+  };
+  db.devis = db.devis || [];
+  db.devis.push(devis);
+  appendJournal(db, 'devis_cree', { devisId: devis.id, logementId: logement.id, entreprise: devis.entrepriseNom });
+  saveDb(db);
+  res.status(201).json(devis);
+});
+
+app.put('/api/devis/:id', (req, res) => {
+  const db = loadDb();
+  const devis = findDevis(db, req.params.id);
+  if (!devis) return res.status(404).json({ message: 'Devis introuvable' });
+  const body = req.body || {};
+  const updatable = ['entrepriseNom', 'entrepriseContact', 'entrepriseTelephone', 'entrepriseEmail', 'postes', 'montantHT', 'montantTTC', 'dateDemande', 'dateReception', 'dateValidation', 'commentaire'];
+  for (const key of updatable) {
+    if (body[key] !== undefined) devis[key] = body[key];
+  }
+  if (body.statut && DEVIS_STATUTS.includes(body.statut)) {
+    const ancien = devis.statut;
+    devis.statut = body.statut;
+    if (body.statut === 'recu' && !devis.dateReception) devis.dateReception = new Date().toISOString();
+    if (body.statut === 'valide' && !devis.dateValidation) devis.dateValidation = new Date().toISOString();
+    appendJournal(db, 'devis_statut_change', { devisId: devis.id, ancien, nouveau: body.statut });
+  }
+  devis.updatedAt = new Date().toISOString();
+  saveDb(db);
+  res.json(devis);
+});
+
+app.delete('/api/devis/:id', (req, res) => {
+  const db = loadDb();
+  const idx = (db.devis || []).findIndex((d) => d.id === req.params.id);
+  if (idx < 0) return res.status(404).json({ message: 'Devis introuvable' });
+  const [removed] = db.devis.splice(idx, 1);
+  appendJournal(db, 'devis_supprime', { devisId: removed.id });
+  saveDb(db);
+  res.json({ ok: true });
+});
+
 app.use((error, req, res, next) => {
   console.error(error);
   res.status(error.status || 500).json({ message: error.message || 'Erreur serveur' });

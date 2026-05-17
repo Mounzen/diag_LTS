@@ -49,5 +49,10 @@ export const api = {
     Object.entries(metadata).forEach(([key, value]) => fd.append(key, value ?? ''));
     return request('/api/uploads', { method: 'POST', body: fd });
   },
-  deletePhoto: (id) => request(`/api/uploads/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  deletePhoto: (id) => request(`/api/uploads/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  devisList: (params = {}) => request(`/api/devis${qs(params)}`),
+  devis: (id) => request(`/api/devis/${encodeURIComponent(id)}`),
+  createDevis: (payload) => request('/api/devis', { method: 'POST', body: JSON.stringify(payload) }),
+  updateDevis: (id, payload) => request(`/api/devis/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteDevis: (id) => request(`/api/devis/${encodeURIComponent(id)}`, { method: 'DELETE' })
 };

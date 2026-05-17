@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FileText, Play, RefreshCw, Save } from 'lucide-react';
+import { FileText, Play, Plus, RefreshCw, Save } from 'lucide-react';
 import { api, API_URL, exportUrl } from '../services/api';
 import { badgeClass, label, money, patrimoineLabel } from '../utils/format';
 import { URGENCES } from '../config/options';
 import { Fact, Select } from './ui';
 import LogementConfiguration from './LogementConfiguration';
+import DevisForm from './DevisForm';
 
 export default function LogementDetail({ detail, meta, user, onUpdated, onStart, onResume, canResume }) {
   const { logement, diagnostics, photos, configuration, pieces } = detail;
@@ -28,6 +29,7 @@ export default function LogementDetail({ detail, meta, user, onUpdated, onStart,
     commentairePatrimonial: logement.commentairePatrimonial || ''
   });
   const [saving, setSaving] = useState(false);
+  const [showDevisForm, setShowDevisForm] = useState(false);
 
   useEffect(() => {
     setPatrimoine({
@@ -49,6 +51,15 @@ export default function LogementDetail({ detail, meta, user, onUpdated, onStart,
 
   return (
     <div className="panel detailPanel">
+      {showDevisForm && (
+        <DevisForm
+          logement={logement}
+          prefilledPostes={(latest?.items || []).filter((it) => ['dangereux', 'tres_degrade', 'degrade'].includes(it.etat)).map((it) => it.element || it.item).slice(0, 8)}
+          user={user}
+          onCreated={() => setShowDevisForm(false)}
+          onCancel={() => setShowDevisForm(false)}
+        />
+      )}
       <div className="sectionTitle">
         <div><h1>{logement.code_acces}</h1><p>{logement.adresse}</p></div>
         <div className="badgeStack">
@@ -82,6 +93,7 @@ export default function LogementDetail({ detail, meta, user, onUpdated, onStart,
       <div className="actions">
         {canResume && <button onClick={onResume}><RefreshCw size={18} /> Reprendre diagnostic</button>}
         <button onClick={onStart}><Play size={18} /> Démarrer diagnostic</button>
+        <button className="secondary" onClick={() => setShowDevisForm(true)}><Plus size={18} /> Créer un devis</button>
         <a className="button secondary" href={exportUrl(`/api/exports/logement/${logement.id}.pdf`)} target="_blank" rel="noreferrer"><FileText size={18} /> Export PDF logement</a>
         <a className="button secondary" href={exportUrl(`/api/exports/lts/${logement.code_lts}.pdf`)} target="_blank" rel="noreferrer"><FileText size={18} /> Export PDF LTS</a>
         <a className="button secondary" href={exportUrl(`/api/exports/secteur/${logement.secteur}.pdf`)} target="_blank" rel="noreferrer"><FileText size={18} /> Export PDF secteur</a>

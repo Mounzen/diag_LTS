@@ -30154,6 +30154,40 @@
       "date": "2026-05-17T21:05:47.295Z",
       "action": "connexion",
       "userId": "dom"
+    },
+    {
+      "id": "ACT-1779054750965-9378",
+      "date": "2026-05-17T21:52:30.965Z",
+      "heure": "21:52:30",
+      "action": "devis_cree",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779054750965",
+      "logementId": "LTS-001-001",
+      "entreprise": "DUPONT BAT"
+    },
+    {
+      "id": "ACT-1779054751235-8378",
+      "date": "2026-05-17T21:52:31.235Z",
+      "heure": "21:52:31",
+      "action": "devis_statut_change",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779054750965",
+      "ancien": "en_attente",
+      "nouveau": "recu"
+    },
+    {
+      "id": "ACT-1779054751431-5712",
+      "date": "2026-05-17T21:52:31.431Z",
+      "heure": "21:52:31",
+      "action": "devis_supprime",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779054750965"
     }
   ],
   "diagnosticTemplate": [
@@ -31159,6 +31193,40 @@
       "date": "2026-05-17T21:05:47.295Z",
       "action": "connexion",
       "userId": "dom"
+    },
+    {
+      "id": "ACT-1779054750965-9378",
+      "date": "2026-05-17T21:52:30.965Z",
+      "heure": "21:52:30",
+      "action": "devis_cree",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779054750965",
+      "logementId": "LTS-001-001",
+      "entreprise": "DUPONT BAT"
+    },
+    {
+      "id": "ACT-1779054751235-8378",
+      "date": "2026-05-17T21:52:31.235Z",
+      "heure": "21:52:31",
+      "action": "devis_statut_change",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779054750965",
+      "ancien": "en_attente",
+      "nouveau": "recu"
+    },
+    {
+      "id": "ACT-1779054751431-5712",
+      "date": "2026-05-17T21:52:31.431Z",
+      "heure": "21:52:31",
+      "action": "devis_supprime",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779054750965"
     }
   ],
   "validations": [],
@@ -53622,6 +53690,45 @@
       "autrePiece": "",
       "commentaire": "",
       "dateModification": "2026-05-17T18:11:38.050Z"
+    },
+    {
+      "id": "CFG-LTS-034-014",
+      "logementId": "LTS-034-014",
+      "typeLogementTheorique": "T2",
+      "configurationReelleConstatee": "",
+      "nombreChambres": 0,
+      "nombrePiecesSupplementaires": 0,
+      "sejour": true,
+      "cuisine": true,
+      "salleDeBain": true,
+      "wc": true,
+      "varangueTerrasse": false,
+      "dependance": false,
+      "cour": false,
+      "garageAbri": false,
+      "autrePiece": "",
+      "commentaire": "",
+      "dateModification": "2026-05-17T21:52:30.965Z"
+    },
+    {
+      "id": "CFG-LTS-034-015",
+      "logementId": "LTS-034-015",
+      "typeLogementTheorique": "T3",
+      "configurationReelleConstatee": "",
+      "nombreChambres": 0,
+      "nombrePiecesSupplementaires": 0,
+      "sejour": true,
+      "cuisine": true,
+      "salleDeBain": true,
+      "wc": true,
+      "varangueTerrasse": false,
+      "dependance": false,
+      "cour": false,
+      "garageAbri": false,
+      "autrePiece": "",
+      "commentaire": "",
+      "dateModification": "2026-05-17T21:52:30.965Z"
     }
-  ]
+  ],
+  "pieces_logement": []
 }
