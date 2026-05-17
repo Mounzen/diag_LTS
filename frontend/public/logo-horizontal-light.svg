@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 104" role="img" aria-label="DIAG-LTS Saint-Denis">
+  <rect x="8" y="8" width="88" height="88" rx="16" fill="#1457a8"/>
+  <path d="M28 72V32h30c10 0 18 8 18 18v22h-10V50c0-5-3-8-8-8H38v30H28Z" fill="#fff"/>
+  <path d="M44 72V50h10v13h28v9H44Z" fill="#2fb36d"/>
+  <circle cx="78" cy="30" r="7" fill="#f59e0b"/>
+  <text x="114" y="48" fill="#142033" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="900">DIAG-LTS</text>
+  <text x="116" y="76" fill="#1457a8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800">SAINT-DENIS</text>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 184 64" role="img" aria-label="DIAG-LTS">
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#fff"/>
+  <path d="M18 45V19h20c7 0 12 5 12 12v14h-8V31c0-3-2-5-5-5H26v19h-8Z" fill="#1457a8"/>
+  <path d="M30 45V31h8v8h16v6H30Z" fill="#2fb36d"/>
+  <circle cx="50" cy="18" r="5" fill="#f59e0b"/>
+  <text x="72" y="40" fill="#fff" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="900">DIAG-LTS</text>
+</svg>
