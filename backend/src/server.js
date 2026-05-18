@@ -72,6 +72,32 @@ function isSupabaseUrl(url) {
   return Boolean(url && url.startsWith('http'));
 }
 
+// === Backup quotidien de db.json sur Supabase ===
+let lastBackupDate = null;
+let backupInProgress = false;
+
+async function backupDbIfNeeded() {
+  if (!supabase || backupInProgress) return;
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  if (lastBackupDate === today) return;
+  backupInProgress = true;
+  try {
+    const db = loadDb();
+    const buffer = Buffer.from(JSON.stringify(db, null, 2), 'utf-8');
+    const filename = `backups/db-${today}.json`;
+    const { error } = await supabase.storage
+      .from(SUPABASE_BUCKET)
+      .upload(filename, buffer, { contentType: 'application/json', upsert: true });
+    if (error) throw error;
+    lastBackupDate = today;
+    console.log(`[Backup] db.json snapshot du ${today} sauvegardé sur Supabase`);
+  } catch (err) {
+    console.error('[Backup] échec:', err.message);
+  } finally {
+    backupInProgress = false;
+  }
+}
+
 
 const DIAGNOSTIC_TEMPLATE = [
   { zone: 'Extérieur', items: ['Façade', 'Peinture extérieure', 'Clôture', 'Cour', 'Accès / cheminement'] },
@@ -668,6 +694,21 @@ app.use(express.json({ limit: '20mb' }));
 app.use('/uploads', express.static(uploadDir));
 
 app.use('/api', healthRoutes());
+
+// Trigger un backup quotidien en passant par l'API (fire-and-forget)
+app.use('/api', (req, res, next) => {
+  backupDbIfNeeded().catch(() => {});
+  next();
+});
+
+// Route admin pour déclencher un backup manuel
+app.post('/api/admin/backup', async (req, res) => {
+  if (!supabase) return res.status(503).json({ message: 'Supabase non configuré' });
+  lastBackupDate = null; // force le backup même si déjà fait aujourd'hui
+  await backupDbIfNeeded();
+  res.json({ ok: true, date: new Date().toISOString() });
+});
+
 app.use('/api', authRoutes({ loadDb, saveDb }));
 
 app.get('/api/meta', (req, res) => {

@@ -32,6 +32,39 @@ export const assetUrl = (url) => {
   return `${API_URL}${url}`;
 };
 
+// Compression d'image côté client avant upload.
+// Réduit une photo téléphone (3-5 MB) à ~500 KB max sans perte visible.
+// Resize à 1920px max + JPEG qualité 80%.
+async function compressImage(file, { maxWidth = 1920, quality = 0.8 } = {}) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const ratio = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error('Compression échouée'));
+          const newName = file.name.replace(/\.[^.]+$/, '.jpg');
+          resolve(new File([blob], newName || 'photo.jpg', { type: 'image/jpeg', lastModified: Date.now() }));
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Impossible de charger l\'image'));
+    };
+    img.src = objectUrl;
+  });
+}
+
 export const api = {
   login: (payload) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
   meta: () => request('/api/meta'),
@@ -52,8 +85,17 @@ export const api = {
   validateDiagnostic: (id, payload = {}) => request(`/api/diagnostics/${encodeURIComponent(id)}/validate`, { method: 'POST', body: JSON.stringify(payload) }),
   dashboard: (params = {}) => request(`/api/dashboard${qs(params)}`),
   uploadPhoto: async (file, metadata = {}) => {
+    // Compresser si c'est une image (gagne ~×6 sur le quota Supabase)
+    let payload = file;
+    if (file && file.type && file.type.startsWith('image/')) {
+      try {
+        payload = await compressImage(file);
+      } catch (err) {
+        console.warn('Compression échouée, upload du fichier original:', err.message);
+      }
+    }
     const fd = new FormData();
-    fd.append('photo', file);
+    fd.append('photo', payload);
     Object.entries(metadata).forEach(([key, value]) => fd.append(key, value ?? ''));
     return request('/api/uploads', { method: 'POST', body: fd });
   },
