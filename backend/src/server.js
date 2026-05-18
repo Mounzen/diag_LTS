@@ -1755,7 +1755,7 @@ app.get('/api/audit', (req, res) => {
 // Conformité réglementaire (logement)
 // ============================================================================
 
-const CONFORMITE_FIELDS = ['detecteurFumee', 'dpe', 'amiante', 'plomb', 'decretDecence', 'electriciteAuxNormes', 'gazAuxNormes', 'dateVerificationConformite', 'commentaireConformite'];
+const CONFORMITE_FIELDS = ['detecteurFumee', 'dpe', 'amiante', 'decretDecence', 'electriciteAuxNormes', 'dateVerificationConformite', 'commentaireConformite'];
 
 app.get('/api/logements/:id/conformite', (req, res) => {
   const db = loadDb();

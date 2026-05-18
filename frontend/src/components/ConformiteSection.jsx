@@ -27,13 +27,6 @@ const OPTIONS_AMIANTE = [
   { value: 'present_actif', label: 'Présent, à traiter' }
 ];
 
-const OPTIONS_PLOMB = [
-  { value: '', label: '— Non vérifié —' },
-  { value: 'non_applicable', label: 'Non applicable (bâti > 1949)' },
-  { value: 'absent', label: 'Absent' },
-  { value: 'present', label: 'Présent' }
-];
-
 const OPTIONS_OUI_NON = [
   { value: '', label: '— Non vérifié —' },
   { value: 'oui', label: 'Oui' },
@@ -95,9 +88,7 @@ export default function ConformiteSection({ logement, user }) {
         {renderSelect('Décret décence', 'decretDecence', OPTIONS_OUI_NON, 'Loi SRU - décret 2002-120')}
         {renderSelect('Classement DPE', 'dpe', OPTIONS_DPE, 'Diagnostic de performance énergétique')}
         {renderSelect('Amiante', 'amiante', OPTIONS_AMIANTE, 'DAPP requis si bâti < 1997')}
-        {renderSelect('Plomb (CREP)', 'plomb', OPTIONS_PLOMB, 'CREP requis si bâti < 1949')}
         {renderSelect('Électricité aux normes', 'electriciteAuxNormes', OPTIONS_OUI_NON, 'Diagnostic électrique > 15 ans')}
-        {renderSelect('Gaz aux normes', 'gazAuxNormes', OPTIONS_OUI_NON, 'Diagnostic gaz > 15 ans')}
         <label className="conformiteField">
           <span className="conformiteLabel">Date de vérification</span>
           <input type="date" value={data.dateVerificationConformite || ''} onChange={(e) => update('dateVerificationConformite', e.target.value)} />
