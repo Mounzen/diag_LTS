@@ -54,5 +54,11 @@ export const api = {
   devis: (id) => request(`/api/devis/${encodeURIComponent(id)}`),
   createDevis: (payload) => request('/api/devis', { method: 'POST', body: JSON.stringify(payload) }),
   updateDevis: (id, payload) => request(`/api/devis/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteDevis: (id) => request(`/api/devis/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  deleteDevis: (id) => request(`/api/devis/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  uploadDevisPdf: async (id, file) => {
+    const fd = new FormData();
+    fd.append('devisPdf', file);
+    return request(`/api/devis/${encodeURIComponent(id)}/upload`, { method: 'POST', body: fd });
+  },
+  deleteDevisPdf: (id) => request(`/api/devis/${encodeURIComponent(id)}/upload`, { method: 'DELETE' })
 };

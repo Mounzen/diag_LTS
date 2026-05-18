@@ -30188,6 +30188,82 @@
       "nouvelleValeur": null,
       "commentaire": "",
       "devisId": "DEV-LTS-001-001-1779054750965"
+    },
+    {
+      "id": "ACT-1779075490065-5156",
+      "date": "2026-05-18T03:38:10.065Z",
+      "heure": "03:38:10",
+      "action": "devis_cree",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075490065",
+      "logementId": "LTS-001-001",
+      "entreprise": "TEST UPLOAD"
+    },
+    {
+      "id": "ACT-1779075490321-7675",
+      "date": "2026-05-18T03:38:10.321Z",
+      "heure": "03:38:10",
+      "action": "devis_pdf_upload",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075490065",
+      "filename": "1779075490288-903663043.pdf"
+    },
+    {
+      "id": "ACT-1779075490672-8773",
+      "date": "2026-05-18T03:38:10.672Z",
+      "heure": "03:38:10",
+      "action": "devis_pdf_supprime",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075490065"
+    },
+    {
+      "id": "ACT-1779075490935-6293",
+      "date": "2026-05-18T03:38:10.935Z",
+      "heure": "03:38:10",
+      "action": "devis_supprime",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075490065"
+    },
+    {
+      "id": "ACT-1779075565808-9492",
+      "date": "2026-05-18T03:39:25.808Z",
+      "heure": "03:39:25",
+      "action": "devis_cree",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075565808",
+      "logementId": "LTS-001-001",
+      "entreprise": "TEST FINAL"
+    },
+    {
+      "id": "ACT-1779075566187-6602",
+      "date": "2026-05-18T03:39:26.187Z",
+      "heure": "03:39:26",
+      "action": "devis_pdf_upload",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075565808",
+      "filename": "1779075566156-432983512.pdf"
+    },
+    {
+      "id": "ACT-1779075566557-9847",
+      "date": "2026-05-18T03:39:26.557Z",
+      "heure": "03:39:26",
+      "action": "devis_supprime",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075565808"
     }
   ],
   "diagnosticTemplate": [
@@ -31227,6 +31303,82 @@
       "nouvelleValeur": null,
       "commentaire": "",
       "devisId": "DEV-LTS-001-001-1779054750965"
+    },
+    {
+      "id": "ACT-1779075490065-5156",
+      "date": "2026-05-18T03:38:10.065Z",
+      "heure": "03:38:10",
+      "action": "devis_cree",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075490065",
+      "logementId": "LTS-001-001",
+      "entreprise": "TEST UPLOAD"
+    },
+    {
+      "id": "ACT-1779075490321-7675",
+      "date": "2026-05-18T03:38:10.321Z",
+      "heure": "03:38:10",
+      "action": "devis_pdf_upload",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075490065",
+      "filename": "1779075490288-903663043.pdf"
+    },
+    {
+      "id": "ACT-1779075490672-8773",
+      "date": "2026-05-18T03:38:10.672Z",
+      "heure": "03:38:10",
+      "action": "devis_pdf_supprime",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075490065"
+    },
+    {
+      "id": "ACT-1779075490935-6293",
+      "date": "2026-05-18T03:38:10.935Z",
+      "heure": "03:38:10",
+      "action": "devis_supprime",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075490065"
+    },
+    {
+      "id": "ACT-1779075565808-9492",
+      "date": "2026-05-18T03:39:25.808Z",
+      "heure": "03:39:25",
+      "action": "devis_cree",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075565808",
+      "logementId": "LTS-001-001",
+      "entreprise": "TEST FINAL"
+    },
+    {
+      "id": "ACT-1779075566187-6602",
+      "date": "2026-05-18T03:39:26.187Z",
+      "heure": "03:39:26",
+      "action": "devis_pdf_upload",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075565808",
+      "filename": "1779075566156-432983512.pdf"
+    },
+    {
+      "id": "ACT-1779075566557-9847",
+      "date": "2026-05-18T03:39:26.557Z",
+      "heure": "03:39:26",
+      "action": "devis_supprime",
+      "ancienneValeur": null,
+      "nouvelleValeur": null,
+      "commentaire": "",
+      "devisId": "DEV-LTS-001-001-1779075565808"
     }
   ],
   "validations": [],

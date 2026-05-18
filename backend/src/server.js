@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs';
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
@@ -1431,9 +1432,67 @@ app.delete('/api/devis/:id', (req, res) => {
   const idx = (db.devis || []).findIndex((d) => d.id === req.params.id);
   if (idx < 0) return res.status(404).json({ message: 'Devis introuvable' });
   const [removed] = db.devis.splice(idx, 1);
+  // Supprimer le fichier PDF associé s'il existe
+  if (removed.pdfFilename) {
+    try {
+      const filePath = path.join(uploadDir, removed.pdfFilename);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch (err) {
+      console.error('Erreur suppression PDF devis:', err.message);
+    }
+  }
   appendJournal(db, 'devis_supprime', { devisId: removed.id });
   saveDb(db);
   res.json({ ok: true });
+});
+
+// Upload du PDF du devis (PDF reçu de l'entreprise)
+app.post('/api/devis/:id/upload', upload.single('devisPdf'), (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'Fichier manquant' });
+  const db = loadDb();
+  const devis = findDevis(db, req.params.id);
+  if (!devis) {
+    // Nettoyer le fichier orphelin
+    try { fs.unlinkSync(path.join(uploadDir, req.file.filename)); } catch {}
+    return res.status(404).json({ message: 'Devis introuvable' });
+  }
+  // Supprimer l'ancien fichier si existant
+  if (devis.pdfFilename) {
+    try {
+      const oldPath = path.join(uploadDir, devis.pdfFilename);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    } catch (err) {
+      console.error('Erreur suppression ancien PDF:', err.message);
+    }
+  }
+  devis.pdfFilename = req.file.filename;
+  devis.pdfUrl = `/uploads/${req.file.filename}`;
+  devis.pdfOriginalName = req.file.originalname;
+  devis.updatedAt = new Date().toISOString();
+  appendJournal(db, 'devis_pdf_upload', { devisId: devis.id, filename: req.file.filename });
+  saveDb(db);
+  res.json(devis);
+});
+
+app.delete('/api/devis/:id/upload', (req, res) => {
+  const db = loadDb();
+  const devis = findDevis(db, req.params.id);
+  if (!devis) return res.status(404).json({ message: 'Devis introuvable' });
+  if (devis.pdfFilename) {
+    try {
+      const filePath = path.join(uploadDir, devis.pdfFilename);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch (err) {
+      console.error('Erreur suppression PDF:', err.message);
+    }
+  }
+  delete devis.pdfFilename;
+  delete devis.pdfUrl;
+  delete devis.pdfOriginalName;
+  devis.updatedAt = new Date().toISOString();
+  appendJournal(db, 'devis_pdf_supprime', { devisId: devis.id });
+  saveDb(db);
+  res.json(devis);
 });
 
 app.use((error, req, res, next) => {

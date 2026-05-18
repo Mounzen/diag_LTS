@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { CalendarClock, Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { api } from '../services/api';
+import { CalendarClock, FileText, Paperclip, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { api, API_URL } from '../services/api';
 import { Loading, Select } from '../components/ui';
 import DevisForm from '../components/DevisForm';
 
@@ -90,6 +90,30 @@ export default function PlanningPage({ user }) {
     }
   }
 
+  async function uploadPdf(devis, file) {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      alert('Fichier trop volumineux (max 15 Mo).');
+      return;
+    }
+    try {
+      await api.uploadDevisPdf(devis.id, file);
+      await load();
+    } catch (err) {
+      alert('Erreur upload : ' + err.message);
+    }
+  }
+
+  async function removePdf(devis) {
+    if (!confirm(`Supprimer le PDF joint au devis ${devis.entrepriseNom} ?`)) return;
+    try {
+      await api.deleteDevisPdf(devis.id);
+      await load();
+    } catch (err) {
+      alert('Erreur : ' + err.message);
+    }
+  }
+
   function startCreate() {
     if (!selectedLogement) {
       alert('Sélectionne d\'abord un logement.');
@@ -160,12 +184,13 @@ export default function PlanningPage({ user }) {
                 <th>Montant TTC</th>
                 <th>Date demande</th>
                 <th>Statut</th>
+                <th>PDF</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan="7" className="muted">Aucun devis pour ces filtres.</td></tr>
+                <tr><td colSpan="8" className="muted">Aucun devis pour ces filtres.</td></tr>
               ) : filtered.map((d) => (
                 <tr key={d.id}>
                   <td><b>{d.logementCode}</b></td>
@@ -179,6 +204,19 @@ export default function PlanningPage({ user }) {
                         <option key={s.value} value={s.value}>{s.label}</option>
                       ))}
                     </select>
+                  </td>
+                  <td>
+                    {d.pdfUrl ? (
+                      <span className="pdfCell">
+                        <a href={`${API_URL}${d.pdfUrl}`} target="_blank" rel="noreferrer" title={d.pdfOriginalName || 'Voir le PDF'}><FileText size={14} /> Voir</a>
+                        <button onClick={() => removePdf(d)} title="Supprimer PDF" className="iconBtn"><X size={12} /></button>
+                      </span>
+                    ) : (
+                      <label className="pdfUploadLabel" title="Joindre un PDF">
+                        <Paperclip size={14} /> Joindre
+                        <input type="file" accept="application/pdf" style={{display:'none'}} onChange={(e) => uploadPdf(d, e.target.files?.[0])} />
+                      </label>
+                    )}
                   </td>
                   <td><button onClick={() => remove(d)} title="Supprimer"><Trash2 size={14} /></button></td>
                 </tr>
