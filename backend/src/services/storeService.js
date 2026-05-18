@@ -106,8 +106,19 @@ export function loadDb() {
   return db;
 }
 
+let saveCallback = null;
+
+export function setSaveCallback(cb) {
+  saveCallback = cb;
+}
+
 export function saveDb(db) {
   writeJson(dbPath, db);
+  if (saveCallback) {
+    Promise.resolve().then(() => saveCallback(db)).catch((err) => {
+      console.error('[SaveCallback] échec sync Supabase:', err.message);
+    });
+  }
 }
 
 export function loadReferentiel() {

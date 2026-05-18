@@ -19,7 +19,7 @@ import {
   createDefaultConfiguration,
   createPiece
 } from '../config/configurationLogement.js';
-import { ensureDataDirectories, loadDb, loadReferentiel, saveDb, uploadDir } from './services/storeService.js';
+import { ensureDataDirectories, loadDb, loadReferentiel, saveDb, setSaveCallback, uploadDir, dbPath } from './services/storeService.js';
 import { redigerSyntheseExecutive } from './services/aiRedactionService.js';
 import { authRoutes } from './routes/authRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
@@ -45,6 +45,8 @@ if (supabase) {
 } else {
   console.warn('[Storage] Supabase non configuré, fallback disque local /uploads');
 }
+
+
 
 async function uploadFileToSupabase(filename, buffer, contentType) {
   if (!supabase) return null;
@@ -72,31 +74,78 @@ function isSupabaseUrl(url) {
   return Boolean(url && url.startsWith('http'));
 }
 
-// === Backup quotidien de db.json sur Supabase ===
+// === Persistance db.json sur Supabase (critique : Render disk éphémère) ===
+const DB_REMOTE_PATH = 'db/current.json';
 let lastBackupDate = null;
-let backupInProgress = false;
+let syncInProgress = false;
+let syncQueued = false;
 
+// Au démarrage : récupère la version Supabase si elle existe (plus à jour que git)
+async function loadDbFromSupabase() {
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase.storage.from(SUPABASE_BUCKET).download(DB_REMOTE_PATH);
+    if (error || !data) {
+      console.log('[DB] Aucune version Supabase trouvée, utilisation du fichier local');
+      return false;
+    }
+    const text = await data.text();
+    JSON.parse(text); // validation
+    fs.writeFileSync(dbPath, text, 'utf-8');
+    console.log(`[DB] Restauré depuis Supabase: ${Buffer.byteLength(text)} bytes`);
+    return true;
+  } catch (err) {
+    console.error('[DB] Erreur restauration Supabase:', err.message);
+    return false;
+  }
+}
+
+// Push de db.json vers Supabase (sur chaque saveDb)
+async function syncDbToSupabase(db) {
+  if (!supabase) return;
+  if (syncInProgress) {
+    syncQueued = true;
+    return;
+  }
+  syncInProgress = true;
+  try {
+    const buffer = Buffer.from(JSON.stringify(db, null, 2), 'utf-8');
+    const { error } = await supabase.storage
+      .from(SUPABASE_BUCKET)
+      .upload(DB_REMOTE_PATH, buffer, { contentType: 'application/json', upsert: true });
+    if (error) throw error;
+  } catch (err) {
+    console.error('[Sync] échec:', err.message);
+  } finally {
+    syncInProgress = false;
+    if (syncQueued) {
+      syncQueued = false;
+      setImmediate(() => syncDbToSupabase(loadDb()));
+    }
+  }
+}
+
+// Backup quotidien en parallèle (snapshot daté pour récupération historique)
 async function backupDbIfNeeded() {
-  if (!supabase || backupInProgress) return;
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  if (!supabase) return;
+  const today = new Date().toISOString().slice(0, 10);
   if (lastBackupDate === today) return;
-  backupInProgress = true;
   try {
     const db = loadDb();
     const buffer = Buffer.from(JSON.stringify(db, null, 2), 'utf-8');
-    const filename = `backups/db-${today}.json`;
     const { error } = await supabase.storage
       .from(SUPABASE_BUCKET)
-      .upload(filename, buffer, { contentType: 'application/json', upsert: true });
+      .upload(`backups/db-${today}.json`, buffer, { contentType: 'application/json', upsert: true });
     if (error) throw error;
     lastBackupDate = today;
-    console.log(`[Backup] db.json snapshot du ${today} sauvegardé sur Supabase`);
+    console.log(`[Backup] Snapshot quotidien du ${today} OK`);
   } catch (err) {
     console.error('[Backup] échec:', err.message);
-  } finally {
-    backupInProgress = false;
   }
 }
+
+// Enregistrer le callback de sync sur chaque saveDb
+setSaveCallback(syncDbToSupabase);
 
 
 const DIAGNOSTIC_TEMPLATE = [
@@ -1740,4 +1789,16 @@ app.use((error, req, res, next) => {
   res.status(error.status || 500).json({ message: error.message || 'Erreur serveur' });
 });
 
-app.listen(PORT, () => console.log(`DIAG-LTS API sur http://localhost:${PORT}`));
+// Démarrage : on attend la restauration Supabase AVANT d'accepter des requêtes
+async function startServer() {
+  if (supabase) {
+    console.log('[DB] Tentative de restauration depuis Supabase...');
+    await loadDbFromSupabase();
+  }
+  app.listen(PORT, () => console.log(`DIAG-LTS API sur http://localhost:${PORT}`));
+}
+
+startServer().catch((err) => {
+  console.error('[Startup] erreur fatale:', err);
+  process.exit(1);
+});
