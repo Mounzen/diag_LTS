@@ -81,6 +81,7 @@ let syncInProgress = false;
 let syncQueued = false;
 
 // Au démarrage : récupère la version Supabase si elle existe (plus à jour que git)
+// Garde-fou : refuse la version Supabase si elle a moins de logements que la version locale
 async function loadDbFromSupabase() {
   if (!supabase) return false;
   try {
@@ -90,9 +91,28 @@ async function loadDbFromSupabase() {
       return false;
     }
     const text = await data.text();
-    JSON.parse(text); // validation
+    const remoteDb = JSON.parse(text); // validation
+    const remoteLogements = Array.isArray(remoteDb.logements) ? remoteDb.logements.length : 0;
+    let localLogements = 0;
+    if (fs.existsSync(dbPath)) {
+      try {
+        const localDb = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
+        localLogements = Array.isArray(localDb.logements) ? localDb.logements.length : 0;
+      } catch {}
+    }
+    // Refuse Supabase si version trop pauvre (moins de 50% des logements locaux ou 0)
+    if (remoteLogements === 0 || (localLogements > 0 && remoteLogements < localLogements * 0.5)) {
+      console.warn(`[DB] ⚠ Version Supabase suspecte (${remoteLogements} logements vs ${localLogements} en local), conservation de la version locale`);
+      // On force un re-sync de la version locale vers Supabase pour réparer
+      if (localLogements > 0) {
+        const localDb = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
+        await syncDbToSupabase(localDb);
+        console.log('[DB] ✓ Supabase écrasé avec la version locale (plus complète)');
+      }
+      return false;
+    }
     fs.writeFileSync(dbPath, text, 'utf-8');
-    console.log(`[DB] Restauré depuis Supabase: ${Buffer.byteLength(text)} bytes`);
+    console.log(`[DB] ✓ Restauré depuis Supabase: ${remoteLogements} logements, ${Buffer.byteLength(text)} bytes`);
     return true;
   } catch (err) {
     console.error('[DB] Erreur restauration Supabase:', err.message);
@@ -2191,6 +2211,18 @@ app.get('/api/admin/geocode-status', (req, res) => {
     sansCoords: total - geocoded,
     inProgress: geocodeQueueRunning
   });
+});
+
+
+// Endpoint admin : force la restauration depuis git (efface la version Supabase)
+app.post('/api/admin/reset-db', async (req, res) => {
+  if (!supabase) return res.status(503).json({ message: 'Supabase non configuré' });
+  try {
+    await supabase.storage.from(SUPABASE_BUCKET).remove([DB_REMOTE_PATH]);
+    res.json({ ok: true, message: 'Version Supabase supprimée. Redéploie Render pour repartir du git.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 app.use((error, req, res, next) => {
