@@ -115,5 +115,24 @@ export const api = {
   archiveHistorique: (logementId) => request(`/api/archive/logement/${encodeURIComponent(logementId)}/historique`),
   audit: (params = {}) => request(`/api/audit${qs(params)}`),
   getConformite: (id) => request(`/api/logements/${encodeURIComponent(id)}/conformite`),
-  updateConformite: (id, payload) => request(`/api/logements/${encodeURIComponent(id)}/conformite`, { method: 'PUT', body: JSON.stringify(payload) })
+  updateConformite: (id, payload) => request(`/api/logements/${encodeURIComponent(id)}/conformite`, { method: 'PUT', body: JSON.stringify(payload) }),
+  interventions: (params = {}) => request(`/api/interventions${qs(params)}`),
+  intervention: (id) => request(`/api/interventions/${encodeURIComponent(id)}`),
+  createIntervention: (payload) => request('/api/interventions', { method: 'POST', body: JSON.stringify(payload) }),
+  updateIntervention: (id, payload) => request(`/api/interventions/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteIntervention: (id) => request(`/api/interventions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  uploadInterventionPhoto: async (id, file, { phase = 'apres', zone = '', element = '' } = {}) => {
+    let payload = file;
+    if (file && file.type && file.type.startsWith('image/')) {
+      try { payload = await compressImage(file); } catch (err) { console.warn('Compression échouée:', err.message); }
+    }
+    const fd = new FormData();
+    fd.append('photo', payload);
+    fd.append('phase', phase);
+    if (zone) fd.append('zone', zone);
+    if (element) fd.append('element', element);
+    return request(`/api/interventions/${encodeURIComponent(id)}/photos`, { method: 'POST', body: fd });
+  },
+  timeline: (logementId) => request(`/api/logements/${encodeURIComponent(logementId)}/timeline`),
+  statsImpact: (annee) => request(`/api/stats/impact${annee ? '?annee=' + annee : ''}`)
 };

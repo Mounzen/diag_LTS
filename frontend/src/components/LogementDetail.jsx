@@ -7,6 +7,7 @@ import { Fact, Select } from './ui';
 import LogementConfiguration from './LogementConfiguration';
 import DevisForm from './DevisForm';
 import ConformiteSection from './ConformiteSection';
+import TimelineLogement from './TimelineLogement';
 
 export default function LogementDetail({ detail, meta, user, onUpdated, onStart, onResume, canResume }) {
   const { logement, diagnostics, photos, configuration, pieces } = detail;
@@ -96,6 +97,7 @@ export default function LogementDetail({ detail, meta, user, onUpdated, onStart,
         <button className="secondary" onClick={savePatrimoine} disabled={saving}><Save size={18} /> Mettre à jour</button>
       </section>
       <ConformiteSection logement={logement} user={user} />
+      <TimelineLogement logementId={logement.id} />
       <div className="actions">
         {canResume && <button onClick={onResume}><RefreshCw size={18} /> Reprendre diagnostic</button>}
         <button onClick={onStart}><Play size={18} /> Démarrer diagnostic</button>

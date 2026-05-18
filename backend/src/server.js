@@ -1784,6 +1784,265 @@ app.put('/api/logements/:id/conformite', (req, res) => {
   res.json(logement.conformite);
 });
 
+
+// ============================================================================
+// Interventions (cycle de vie travaux : diag avant → devis → travaux → diag après)
+// ============================================================================
+
+const INTERVENTION_STATUTS = ['planifie', 'en_cours', 'realise', 'reception', 'annule'];
+
+function findIntervention(db, id) {
+  return (db.interventions || []).find((i) => i.id === id);
+}
+
+app.get('/api/interventions', (req, res) => {
+  const db = loadDb();
+  let list = db.interventions || [];
+  const { logementId, statut, entreprise } = req.query;
+  if (logementId) list = list.filter((i) => i.logementId === logementId);
+  if (statut) list = list.filter((i) => i.statut === statut);
+  if (entreprise) {
+    const needle = String(entreprise).toLowerCase();
+    list = list.filter((i) => String(i.entrepriseNom || '').toLowerCase().includes(needle));
+  }
+  list = [...list].sort((a, b) => String(b.dateDebut || b.createdAt || '').localeCompare(String(a.dateDebut || a.createdAt || '')));
+  res.json(list);
+});
+
+app.get('/api/interventions/:id', (req, res) => {
+  const db = loadDb();
+  const intervention = findIntervention(db, req.params.id);
+  if (!intervention) return res.status(404).json({ message: 'Intervention introuvable' });
+  res.json(intervention);
+});
+
+app.post('/api/interventions', (req, res) => {
+  const db = loadDb();
+  const body = req.body || {};
+  if (!body.logementId) return res.status(400).json({ message: 'logementId requis' });
+  const logement = db.logements.find((l) => l.id === body.logementId);
+  if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+  const statut = INTERVENTION_STATUTS.includes(body.statut) ? body.statut : 'planifie';
+  const now = new Date().toISOString();
+  const intervention = {
+    id: `INT-${logement.id}-${Date.now()}`,
+    logementId: logement.id,
+    logementCode: logement.code_acces,
+    devisId: body.devisId || null,
+    diagnosticAvantId: body.diagnosticAvantId || null,
+    diagnosticApresId: body.diagnosticApresId || null,
+    postes: Array.isArray(body.postes) ? body.postes : [],
+    entrepriseNom: String(body.entrepriseNom || '').trim(),
+    dateDebut: body.dateDebut || null,
+    dateFin: body.dateFin || null,
+    cout: Number(body.cout || 0),
+    statut,
+    photosAvantIds: Array.isArray(body.photosAvantIds) ? body.photosAvantIds : [],
+    photosApresIds: Array.isArray(body.photosApresIds) ? body.photosApresIds : [],
+    commentaire: String(body.commentaire || ''),
+    createdAt: now,
+    updatedAt: now,
+    createdBy: body.createdBy || null
+  };
+  db.interventions = db.interventions || [];
+  db.interventions.push(intervention);
+  appendJournal(db, 'intervention_cree', { interventionId: intervention.id, logementId: logement.id });
+  saveDb(db);
+  res.status(201).json(intervention);
+});
+
+app.put('/api/interventions/:id', (req, res) => {
+  const db = loadDb();
+  const intervention = findIntervention(db, req.params.id);
+  if (!intervention) return res.status(404).json({ message: 'Intervention introuvable' });
+  const body = req.body || {};
+  const updatable = ['devisId', 'diagnosticAvantId', 'diagnosticApresId', 'postes', 'entrepriseNom', 'dateDebut', 'dateFin', 'cout', 'photosAvantIds', 'photosApresIds', 'commentaire'];
+  for (const key of updatable) {
+    if (body[key] !== undefined) intervention[key] = body[key];
+  }
+  if (body.statut && INTERVENTION_STATUTS.includes(body.statut)) {
+    const ancien = intervention.statut;
+    intervention.statut = body.statut;
+    appendJournal(db, 'intervention_statut_change', { interventionId: intervention.id, ancien, nouveau: body.statut });
+  }
+  intervention.updatedAt = new Date().toISOString();
+  saveDb(db);
+  res.json(intervention);
+});
+
+app.delete('/api/interventions/:id', (req, res) => {
+  const db = loadDb();
+  const idx = (db.interventions || []).findIndex((i) => i.id === req.params.id);
+  if (idx < 0) return res.status(404).json({ message: 'Intervention introuvable' });
+  const [removed] = db.interventions.splice(idx, 1);
+  appendJournal(db, 'intervention_supprimee', { interventionId: removed.id });
+  saveDb(db);
+  res.json({ ok: true });
+});
+
+// Upload photo "après travaux" associée à une intervention
+app.post('/api/interventions/:id/photos', upload.single('photo'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'Photo manquante' });
+    const db = loadDb();
+    const intervention = findIntervention(db, req.params.id);
+    if (!intervention) return res.status(404).json({ message: 'Intervention introuvable' });
+    const stored = await saveUploadedFile(req.file);
+    const phase = req.body.phase === 'avant' ? 'avant' : 'apres';
+    const photo = {
+      id: `PHO-INT-${Date.now()}-${Math.round(Math.random() * 10000)}`,
+      url: stored.url,
+      filename: stored.filename,
+      logementId: intervention.logementId,
+      interventionId: intervention.id,
+      phase: `travaux_${phase}`,
+      zone: req.body.zone || '',
+      element: req.body.element || '',
+      date: new Date().toISOString()
+    };
+    db.photos = db.photos || [];
+    db.photos.push(photo);
+    if (phase === 'avant') {
+      intervention.photosAvantIds = [...(intervention.photosAvantIds || []), photo.id];
+    } else {
+      intervention.photosApresIds = [...(intervention.photosApresIds || []), photo.id];
+    }
+    intervention.updatedAt = new Date().toISOString();
+    appendJournal(db, 'intervention_photo_ajoutee', { interventionId: intervention.id, phase, photoId: photo.id });
+    saveDb(db);
+    res.status(201).json({ intervention, photo });
+  } catch (err) { next(err); }
+});
+
+// ============================================================================
+// Timeline d'un logement (chronologie complète : diag + devis + interventions)
+// ============================================================================
+
+app.get('/api/logements/:id/timeline', (req, res) => {
+  const db = loadDb();
+  const logement = db.logements.find((l) => l.id === req.params.id);
+  if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+  const events = [];
+  for (const d of db.diagnostics || []) {
+    if ((d.logementId || d.logement_id) !== logement.id) continue;
+    const itemsDegrades = (d.items || []).filter((it) => ['degrade', 'tres_degrade', 'dangereux'].includes(it.etat)).length;
+    events.push({
+      type: 'diagnostic',
+      id: d.id,
+      date: d.dateModification || d.dateValidation || d.date,
+      statut: d.statut,
+      urgenceGlobale: d.urgenceGlobale || d.priorite,
+      coutTotal: Number(d.coutTotal || 0),
+      itemsCount: (d.items || []).length,
+      itemsDegrades,
+      agent: d.agent?.prenom || d.agent?.nom || null
+    });
+  }
+  for (const dv of db.devis || []) {
+    if (dv.logementId !== logement.id) continue;
+    events.push({
+      type: 'devis',
+      id: dv.id,
+      date: dv.dateDemande || dv.createdAt,
+      entrepriseNom: dv.entrepriseNom,
+      montantTTC: Number(dv.montantTTC || 0),
+      statut: dv.statut,
+      postes: dv.postes || [],
+      pdfUrl: dv.pdfUrl || null
+    });
+  }
+  for (const int of db.interventions || []) {
+    if (int.logementId !== logement.id) continue;
+    const photosAvant = (db.photos || []).filter((p) => (int.photosAvantIds || []).includes(p.id));
+    const photosApres = (db.photos || []).filter((p) => (int.photosApresIds || []).includes(p.id));
+    events.push({
+      type: 'intervention',
+      id: int.id,
+      date: int.dateDebut || int.createdAt,
+      dateFin: int.dateFin,
+      statut: int.statut,
+      entrepriseNom: int.entrepriseNom,
+      postes: int.postes || [],
+      cout: Number(int.cout || 0),
+      photosAvant,
+      photosApres,
+      commentaire: int.commentaire
+    });
+  }
+  events.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  res.json({ logement: { id: logement.id, code_acces: logement.code_acces, adresse: logement.adresse }, events });
+});
+
+// ============================================================================
+// Stats impact : indicateurs d'amélioration du parc
+// ============================================================================
+
+app.get('/api/stats/impact', (req, res) => {
+  const db = loadDb();
+  const annee = req.query.annee ? Number(req.query.annee) : new Date().getFullYear();
+  const interventions = (db.interventions || []).filter((i) => {
+    const d = i.dateFin || i.dateDebut || i.createdAt;
+    return d && new Date(d).getFullYear() === annee;
+  });
+  const interventionsRealisees = interventions.filter((i) => ['realise', 'reception'].includes(i.statut));
+  const budgetEngage = interventionsRealisees.reduce((s, i) => s + Number(i.cout || 0), 0);
+  const logementsAmeliores = new Set();
+  const successStories = [];
+  for (const int of interventionsRealisees) {
+    if (!int.diagnosticAvantId || !int.diagnosticApresId) continue;
+    const avant = (db.diagnostics || []).find((d) => d.id === int.diagnosticAvantId);
+    const apres = (db.diagnostics || []).find((d) => d.id === int.diagnosticApresId);
+    if (!avant || !apres) continue;
+    const degAvant = (avant.items || []).filter((i) => ['degrade', 'tres_degrade', 'dangereux'].includes(i.etat)).length;
+    const degApres = (apres.items || []).filter((i) => ['degrade', 'tres_degrade', 'dangereux'].includes(i.etat)).length;
+    if (degApres < degAvant) {
+      logementsAmeliores.add(int.logementId);
+      successStories.push({
+        logementId: int.logementId,
+        logementCode: int.logementCode,
+        intervention: int.id,
+        degAvant,
+        degApres,
+        gain: degAvant - degApres,
+        cout: Number(int.cout || 0)
+      });
+    }
+  }
+  successStories.sort((a, b) => b.gain - a.gain);
+  // Distribution état actuel du parc
+  const latestByLogement = new Map();
+  for (const d of db.diagnostics || []) {
+    const lid = d.logementId || d.logement_id;
+    const prev = latestByLogement.get(lid);
+    const date = d.dateModification || d.date;
+    if (!prev || String(date).localeCompare(String(prev.dateModification || prev.date)) > 0) {
+      latestByLogement.set(lid, d);
+    }
+  }
+  const distribution = { bon: 0, moyen: 0, degrade: 0, tres_degrade: 0, dangereux: 0, non_diagnostique: 0 };
+  for (const logement of db.logements) {
+    const diag = latestByLogement.get(logement.id);
+    if (!diag) { distribution.non_diagnostique += 1; continue; }
+    const items = diag.items || [];
+    if (items.some((i) => i.etat === 'dangereux')) distribution.dangereux += 1;
+    else if (items.some((i) => i.etat === 'tres_degrade')) distribution.tres_degrade += 1;
+    else if (items.some((i) => i.etat === 'degrade')) distribution.degrade += 1;
+    else if (items.some((i) => i.etat === 'moyen')) distribution.moyen += 1;
+    else distribution.bon += 1;
+  }
+  res.json({
+    annee,
+    interventionsRealisees: interventionsRealisees.length,
+    interventionsPlanifiees: interventions.filter((i) => i.statut === 'planifie').length,
+    interventionsEnCours: interventions.filter((i) => i.statut === 'en_cours').length,
+    budgetEngage,
+    logementsAmeliores: logementsAmeliores.size,
+    totalLogements: db.logements.length,
+    successStories: successStories.slice(0, 10),
+    distributionEtat: distribution
+  });
+});
+
 app.use((error, req, res, next) => {
   console.error(error);
   res.status(error.status || 500).json({ message: error.message || 'Erreur serveur' });

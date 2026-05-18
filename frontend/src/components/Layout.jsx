@@ -1,5 +1,5 @@
 import React from 'react';
-import { Archive, BarChart3, CalendarClock, ClipboardCheck, Eye, FileText, LogOut, Menu, User } from 'lucide-react';
+import { Archive, BarChart3, CalendarClock, ClipboardCheck, Eye, FileText, LogOut, Menu, TrendingUp, User } from 'lucide-react';
 import BrandLogo from './BrandLogo';
 
 const nav = [
@@ -7,6 +7,7 @@ const nav = [
   ['dashboard', 'Bureau', BarChart3],
   ['planning', 'Planning', CalendarClock],
   ['archive', 'Archive', Archive],
+  ['impact', 'Impact', TrendingUp],
   ['audit', 'Journal', Eye],
   ['exports', 'Exports', FileText]
 ];
