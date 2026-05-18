@@ -2093,7 +2093,7 @@ async function geocodeAddress(address) {
 }
 
 // Liste des logements avec coords + dernière urgence (pour la carte)
-app.get('/api/logements/with-coords', (req, res) => {
+app.get('/api/carto/logements', (req, res) => {
   const db = loadDb();
   const latestByLogement = new Map();
   for (const d of db.diagnostics || []) {

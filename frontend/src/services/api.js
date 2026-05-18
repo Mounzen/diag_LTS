@@ -135,7 +135,7 @@ export const api = {
   },
   timeline: (logementId) => request(`/api/logements/${encodeURIComponent(logementId)}/timeline`),
   statsImpact: (annee) => request(`/api/stats/impact${annee ? '?annee=' + annee : ''}`),
-  logementsWithCoords: () => request('/api/logements/with-coords'),
+  logementsWithCoords: () => request('/api/carto/logements'),
   geocodeStatus: () => request('/api/admin/geocode-status'),
   geocodeBatch: (limit = 50) => request('/api/admin/geocode-batch', { method: 'POST', body: JSON.stringify({ limit }) }),
   geocodeLogement: (id, payload = {}) => request(`/api/logements/${encodeURIComponent(id)}/geocode`, { method: 'POST', body: JSON.stringify(payload) })
