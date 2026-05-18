@@ -64,23 +64,23 @@ export default function ImpactPage({ user }) {
       </div>
 
       <div className="impactKpis">
-        <div className="kpi">
-          <Hammer size={18} className="kpiIcon" />
+        <div className="impactKpi">
+          <Hammer size={18} className="impactKpiIcon" />
           <strong>{data.interventionsRealisees}</strong>
           <span>intervention(s) réalisée(s) en {data.annee}</span>
         </div>
-        <div className="kpi">
-          <Euro size={18} className="kpiIcon" />
+        <div className="impactKpi">
+          <Euro size={18} className="impactKpiIcon" />
           <strong>{formatMontant(data.budgetEngage)}</strong>
           <span>budget engagé (travaux réceptionnés)</span>
         </div>
-        <div className="kpi">
-          <Award size={18} className="kpiIcon" />
+        <div className="impactKpi">
+          <Award size={18} className="impactKpiIcon" />
           <strong>{data.logementsAmeliores}</strong>
           <span>logement(s) amélioré(s) sur {data.totalLogements}</span>
         </div>
-        <div className="kpi">
-          <TrendingUp size={18} className="kpiIcon" />
+        <div className="impactKpi">
+          <TrendingUp size={18} className="impactKpiIcon" />
           <strong>{data.interventionsPlanifiees + data.interventionsEnCours}</strong>
           <span>intervention(s) à venir / en cours</span>
         </div>
