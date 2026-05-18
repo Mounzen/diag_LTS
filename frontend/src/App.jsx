@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage';
 import TerrainPage from './pages/TerrainPage';
 import PlanningPage from './pages/PlanningPage';
 import ArchivePage from './pages/ArchivePage';
+import AuditPage from './pages/AuditPage';
 
 export default function App() {
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('diag_lts_agent') || 'null'));
@@ -31,6 +32,7 @@ export default function App() {
       {page === 'exports' && <ExportsPage />}
       {page === 'planning' && <PlanningPage user={user} />}
       {page === 'archive' && <ArchivePage user={user} />}
+      {page === 'audit' && <AuditPage user={user} />}
     </Layout>
   );
 }

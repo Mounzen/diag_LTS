@@ -1668,6 +1668,73 @@ app.get('/api/archive/logement/:id/historique', (req, res) => {
   res.json({ logement: { id: logement.id, code_acces: logement.code_acces, adresse: logement.adresse }, historique: diags });
 });
 
+
+// ============================================================================
+// Audit log
+// ============================================================================
+
+app.get('/api/audit', (req, res) => {
+  const db = loadDb();
+  let entries = [...(db.journalActions || []), ...(db.historique_actions || [])];
+  // Dédoublonner par id
+  const seen = new Set();
+  entries = entries.filter((e) => {
+    if (!e.id || seen.has(e.id)) return false;
+    seen.add(e.id);
+    return true;
+  });
+  const { action, logementId, agentId, dateFrom, dateTo, q } = req.query;
+  if (action) entries = entries.filter((e) => e.action === action);
+  if (logementId) entries = entries.filter((e) => e.logementId === logementId || e.logement_id === logementId);
+  if (agentId) entries = entries.filter((e) => e.agentId === agentId || e.userId === agentId);
+  if (dateFrom) entries = entries.filter((e) => String(e.date || '').slice(0, 10) >= dateFrom);
+  if (dateTo) entries = entries.filter((e) => String(e.date || '').slice(0, 10) <= dateTo);
+  if (q) {
+    const needle = String(q).toLowerCase();
+    entries = entries.filter((e) => JSON.stringify(e).toLowerCase().includes(needle));
+  }
+  entries.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  const limit = Math.min(Number(req.query.limit || 500), 2000);
+  res.json({
+    total: entries.length,
+    actions: [...new Set(entries.map((e) => e.action).filter(Boolean))].sort(),
+    entries: entries.slice(0, limit)
+  });
+});
+
+// ============================================================================
+// Conformité réglementaire (logement)
+// ============================================================================
+
+const CONFORMITE_FIELDS = ['detecteurFumee', 'dpe', 'amiante', 'plomb', 'decretDecence', 'electriciteAuxNormes', 'gazAuxNormes', 'dateVerificationConformite', 'commentaireConformite'];
+
+app.get('/api/logements/:id/conformite', (req, res) => {
+  const db = loadDb();
+  const logement = db.logements.find((l) => l.id === req.params.id);
+  if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+  res.json(logement.conformite || {});
+});
+
+app.put('/api/logements/:id/conformite', (req, res) => {
+  const db = loadDb();
+  const logement = db.logements.find((l) => l.id === req.params.id);
+  if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+  const before = logement.conformite || {};
+  const update = {};
+  for (const field of CONFORMITE_FIELDS) {
+    if (req.body[field] !== undefined) update[field] = req.body[field];
+  }
+  logement.conformite = { ...before, ...update, updatedAt: new Date().toISOString() };
+  appendJournal(db, 'conformite_mise_a_jour', {
+    logementId: logement.id,
+    code_acces: logement.code_acces,
+    champsModifies: Object.keys(update),
+    agentId: req.body.agentId || null
+  });
+  saveDb(db);
+  res.json(logement.conformite);
+});
+
 app.use((error, req, res, next) => {
   console.error(error);
   res.status(error.status || 500).json({ message: error.message || 'Erreur serveur' });

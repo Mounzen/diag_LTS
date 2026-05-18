@@ -112,5 +112,8 @@ export const api = {
   },
   deleteDevisPdf: (id) => request(`/api/devis/${encodeURIComponent(id)}/upload`, { method: 'DELETE' }),
   archiveDiagnostics: (params = {}) => request(`/api/archive/diagnostics${qs(params)}`),
-  archiveHistorique: (logementId) => request(`/api/archive/logement/${encodeURIComponent(logementId)}/historique`)
+  archiveHistorique: (logementId) => request(`/api/archive/logement/${encodeURIComponent(logementId)}/historique`),
+  audit: (params = {}) => request(`/api/audit${qs(params)}`),
+  getConformite: (id) => request(`/api/logements/${encodeURIComponent(id)}/conformite`),
+  updateConformite: (id, payload) => request(`/api/logements/${encodeURIComponent(id)}/conformite`, { method: 'PUT', body: JSON.stringify(payload) })
 };

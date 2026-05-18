@@ -1051,3 +1051,22 @@ th { color: #667085; font-size: 13px; }
 .modalContent{background:#fff;border-radius:10px;padding:24px;max-width:760px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);max-height:calc(100vh - 80px);overflow-y:auto;animation:modalIn 0.2s ease-out}
 @keyframes modalIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 @media (max-width:600px){.modalContent{padding:16px;max-height:calc(100vh - 60px)}.devisForm .formGrid{grid-template-columns:1fr}.devisForm .formGrid label.wide{grid-column:span 1}}
+
+/* === Audit page === */
+.auditFilters{display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;margin-bottom:18px;padding:14px;background:#f7f9fc;border-radius:8px}
+.auditFilters label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;font-weight:600}
+.auditFilters input,.auditFilters select{padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff}
+.auditActions{display:flex;gap:8px;align-items:flex-end}
+
+/* === Conformité réglementaire === */
+.conformiteSection{margin-top:28px;padding:18px;background:#fefce8;border-left:4px solid #eab308;border-radius:8px}
+.conformiteSection h2{margin:0 0 4px;display:flex;align-items:center;gap:8px;color:#854d0e}
+.conformiteGrid{display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;margin-top:16px}
+.conformiteField{display:flex;flex-direction:column;gap:4px}
+.conformiteField.wide{grid-column:1 / -1}
+.conformiteLabel{font-size:12px;font-weight:600;color:#475569}
+.conformiteField select,.conformiteField input,.conformiteField textarea{padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;font-size:13px;font-family:inherit}
+.conformiteField small{font-size:11px;line-height:1.3}
+.conformiteFooter{display:flex;justify-content:space-between;align-items:center;margin-top:16px;flex-wrap:wrap;gap:10px}
+.conformiteStats{display:flex;gap:12px;flex-wrap:wrap}
+.conformiteStats span{font-size:13px;font-weight:600}
