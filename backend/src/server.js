@@ -2043,6 +2043,156 @@ app.get('/api/stats/impact', (req, res) => {
   });
 });
 
+
+// ============================================================================
+// Géocodage Nominatim (OSM) + carto
+// ============================================================================
+
+// Pays/ville par défaut pour le contexte Saint-Denis (Réunion). Configurable via env.
+const GEO_CONTEXT = process.env.GEO_CONTEXT || 'Saint-Denis, La Réunion, France';
+const NOMINATIM_USER_AGENT = process.env.NOMINATIM_USER_AGENT || 'DIAG-LTS/1.0 (contact@diag-lts.fr)';
+let geocodeQueueRunning = false;
+
+async function geocodeAddress(address) {
+  // Nominatim impose 1 req/sec max, on attend 1.1s avant chaque call
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  const query = encodeURIComponent(`${address}, ${GEO_CONTEXT}`);
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`;
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': NOMINATIM_USER_AGENT, 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const arr = await res.json();
+    if (Array.isArray(arr) && arr.length > 0) {
+      return { latitude: Number(arr[0].lat), longitude: Number(arr[0].lon), source: 'nominatim' };
+    }
+    return null;
+  } catch (err) {
+    console.error(`[Geocode] échec pour "${address}": ${err.message}`);
+    return null;
+  }
+}
+
+// Liste des logements avec coords + dernière urgence (pour la carte)
+app.get('/api/logements/with-coords', (req, res) => {
+  const db = loadDb();
+  const latestByLogement = new Map();
+  for (const d of db.diagnostics || []) {
+    const lid = d.logementId || d.logement_id;
+    const prev = latestByLogement.get(lid);
+    const date = d.dateModification || d.date;
+    if (!prev || String(date).localeCompare(String(prev.dateModification || prev.date)) > 0) {
+      latestByLogement.set(lid, d);
+    }
+  }
+  const items = db.logements
+    .filter((l) => l.latitude && l.longitude)
+    .map((l) => {
+      const diag = latestByLogement.get(l.id);
+      return {
+        id: l.id,
+        code_acces: l.code_acces,
+        adresse: l.adresse,
+        secteur: l.secteur,
+        nom_lts: l.nom_lts,
+        type_logement: l.type_logement,
+        statutPatrimonial: l.statutPatrimonial,
+        dansParcActif: l.dansParcActif,
+        latitude: l.latitude,
+        longitude: l.longitude,
+        urgenceGlobale: diag?.urgenceGlobale || diag?.priorite || 'non_diagnostique',
+        coutTotal: Number(diag?.coutTotal || 0),
+        dateDiagnostic: diag?.dateModification || diag?.date || null,
+        diagnostique: Boolean(diag)
+      };
+    });
+  const totalLogements = db.logements.length;
+  const sansCoords = totalLogements - items.length;
+  res.json({ logements: items, totalLogements, geocoded: items.length, sansCoords });
+});
+
+// Géocode un logement spécifique (utile pour correction manuelle)
+app.post('/api/logements/:id/geocode', async (req, res, next) => {
+  try {
+    const db = loadDb();
+    const logement = db.logements.find((l) => l.id === req.params.id);
+    if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+    if (req.body.latitude && req.body.longitude) {
+      // Géocodage manuel (l'utilisateur fournit les coords)
+      logement.latitude = Number(req.body.latitude);
+      logement.longitude = Number(req.body.longitude);
+      logement.geocodeSource = 'manuel';
+    } else {
+      // Géocodage automatique
+      const result = await geocodeAddress(logement.adresse);
+      if (!result) return res.status(422).json({ message: 'Adresse non géocodable' });
+      logement.latitude = result.latitude;
+      logement.longitude = result.longitude;
+      logement.geocodeSource = result.source;
+    }
+    logement.geocodeAt = new Date().toISOString();
+    saveDb(db);
+    res.json({ id: logement.id, latitude: logement.latitude, longitude: logement.longitude });
+  } catch (err) { next(err); }
+});
+
+// Lance un batch de géocodage (en arrière-plan, max N logements)
+app.post('/api/admin/geocode-batch', async (req, res) => {
+  if (geocodeQueueRunning) {
+    return res.json({ ok: false, message: 'Un géocodage est déjà en cours' });
+  }
+  const limit = Math.min(Number(req.body?.limit || 50), 200);
+  geocodeQueueRunning = true;
+  // On répond tout de suite, le batch tourne en arrière-plan
+  res.json({ ok: true, message: `Géocodage de ${limit} logements lancé en arrière-plan` });
+  setImmediate(async () => {
+    let processed = 0;
+    let success = 0;
+    try {
+      const db = loadDb();
+      const todo = db.logements.filter((l) => !l.latitude || !l.longitude).slice(0, limit);
+      console.log(`[Geocode] Batch démarré: ${todo.length} logements`);
+      for (const logement of todo) {
+        const result = await geocodeAddress(logement.adresse);
+        processed += 1;
+        if (result) {
+          // Recharger db.json à chaque fois car saveDb async peut interférer
+          const freshDb = loadDb();
+          const fresh = freshDb.logements.find((l) => l.id === logement.id);
+          if (fresh) {
+            fresh.latitude = result.latitude;
+            fresh.longitude = result.longitude;
+            fresh.geocodeSource = result.source;
+            fresh.geocodeAt = new Date().toISOString();
+            saveDb(freshDb);
+            success += 1;
+          }
+        }
+        if (processed % 10 === 0) {
+          console.log(`[Geocode] Progression: ${processed}/${todo.length} (${success} succès)`);
+        }
+      }
+      console.log(`[Geocode] Batch terminé: ${success}/${processed} succès`);
+    } catch (err) {
+      console.error('[Geocode] Erreur batch:', err.message);
+    } finally {
+      geocodeQueueRunning = false;
+    }
+  });
+});
+
+// Statut du géocodage en cours
+app.get('/api/admin/geocode-status', (req, res) => {
+  const db = loadDb();
+  const total = db.logements.length;
+  const geocoded = db.logements.filter((l) => l.latitude && l.longitude).length;
+  res.json({
+    total,
+    geocoded,
+    sansCoords: total - geocoded,
+    inProgress: geocodeQueueRunning
+  });
+});
+
 app.use((error, req, res, next) => {
   console.error(error);
   res.status(error.status || 500).json({ message: error.message || 'Erreur serveur' });

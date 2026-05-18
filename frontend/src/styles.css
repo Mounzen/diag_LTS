@@ -1119,3 +1119,14 @@ th { color: #667085; font-size: 13px; }
 .distLegend{display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;margin-top:10px}
 .distLegendItem{display:flex;align-items:center;gap:8px;font-size:13px}
 .distDot{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+
+/* === Page Carte === */
+.mapPanel{padding:20px}
+.mapContainer{width:100%;height:65vh;min-height:500px;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-top:14px}
+.mapLegend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 4px;padding:10px 12px;background:#f7f9fc;border-radius:6px;font-size:13px}
+.mapLegendItem{display:flex;align-items:center;gap:6px}
+.legendDot{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #cbd5e1;flex-shrink:0}
+.mapMarkerDot{width:16px;height:16px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4)}
+.mapPopup{font-family:Arial, sans-serif;font-size:13px;line-height:1.5;min-width:180px}
+.mapPopup strong{font-size:14px;color:#1457a8}
+.mapPopup small{color:#64748b;font-size:11px}
