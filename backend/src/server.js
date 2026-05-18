@@ -24,6 +24,7 @@ import { redigerSyntheseExecutive } from './services/aiRedactionService.js';
 import { authRoutes } from './routes/authRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
 import { createClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -34,7 +35,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const SUPABASE_BUCKET = process.env.SUPABASE_BUCKET || 'diag-lts-photos';
 const supabase = (SUPABASE_URL && SUPABASE_SERVICE_KEY)
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } })
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: { persistSession: false },
+      realtime: { transport: WebSocket }
+    })
   : null;
 if (supabase) {
   console.log(`[Storage] Supabase actif sur bucket "${SUPABASE_BUCKET}"`);
