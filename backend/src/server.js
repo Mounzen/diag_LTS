@@ -2155,45 +2155,64 @@ app.post('/api/logements/:id/geocode', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// État du géocodage (suivi en mémoire pour /api/admin/geocode-status)
+let geocodeProgress = { processed: 0, success: 0, total: 0, errors: [], startedAt: null };
+
 // Lance un batch de géocodage (en arrière-plan, max N logements)
+// OPTIMISÉ : modifie db en mémoire, save sur disque tous les 10, sync Supabase 1 fois à la fin
 app.post('/api/admin/geocode-batch', async (req, res) => {
   if (geocodeQueueRunning) {
-    return res.json({ ok: false, message: 'Un géocodage est déjà en cours' });
+    return res.json({ ok: false, message: 'Un géocodage est déjà en cours', progress: geocodeProgress });
   }
-  const limit = Math.min(Number(req.body?.limit || 50), 200);
+  const limit = Math.min(Number(req.body?.limit || 50), 528);
   geocodeQueueRunning = true;
-  // On répond tout de suite, le batch tourne en arrière-plan
+  geocodeProgress = { processed: 0, success: 0, total: 0, errors: [], startedAt: new Date().toISOString() };
   res.json({ ok: true, message: `Géocodage de ${limit} logements lancé en arrière-plan` });
+
   setImmediate(async () => {
-    let processed = 0;
-    let success = 0;
     try {
       const db = loadDb();
       const todo = db.logements.filter((l) => !l.latitude || !l.longitude).slice(0, limit);
-      console.log(`[Geocode] Batch démarré: ${todo.length} logements`);
+      geocodeProgress.total = todo.length;
+      console.log(`[Geocode] Batch démarré: ${todo.length} logements à géocoder`);
+
+      // Map pour retrouver le logement dans db par id (le même objet est modifié in-place)
+      const logementById = new Map(db.logements.map((l) => [l.id, l]));
+
       for (const logement of todo) {
-        const result = await geocodeAddress(logement.adresse);
-        processed += 1;
-        if (result) {
-          // Recharger db.json à chaque fois car saveDb async peut interférer
-          const freshDb = loadDb();
-          const fresh = freshDb.logements.find((l) => l.id === logement.id);
-          if (fresh) {
-            fresh.latitude = result.latitude;
-            fresh.longitude = result.longitude;
-            fresh.geocodeSource = result.source;
-            fresh.geocodeAt = new Date().toISOString();
-            saveDb(freshDb);
-            success += 1;
+        try {
+          const result = await geocodeAddress(logement.adresse);
+          geocodeProgress.processed += 1;
+          if (result) {
+            const target = logementById.get(logement.id);
+            if (target) {
+              target.latitude = result.latitude;
+              target.longitude = result.longitude;
+              target.geocodeSource = result.source;
+              target.geocodeAt = new Date().toISOString();
+              geocodeProgress.success += 1;
+            }
+          } else {
+            geocodeProgress.errors.push({ id: logement.id, adresse: logement.adresse, reason: 'no_match' });
           }
+        } catch (errIter) {
+          geocodeProgress.errors.push({ id: logement.id, adresse: logement.adresse, reason: errIter.message });
+          console.error(`[Geocode] Erreur pour ${logement.id}: ${errIter.message}`);
         }
-        if (processed % 10 === 0) {
-          console.log(`[Geocode] Progression: ${processed}/${todo.length} (${success} succès)`);
+
+        // Sauvegarde sur disque tous les 10 logements (rapide, pas de sync Supabase ici)
+        if (geocodeProgress.processed % 10 === 0) {
+          fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf-8');
+          console.log(`[Geocode] Progression: ${geocodeProgress.processed}/${todo.length} (${geocodeProgress.success} succès)`);
         }
       }
-      console.log(`[Geocode] Batch terminé: ${success}/${processed} succès`);
+
+      // Save final + sync Supabase une seule fois (au lieu de 50x)
+      saveDb(db);
+      console.log(`[Geocode] Batch terminé: ${geocodeProgress.success}/${geocodeProgress.processed} succès, ${geocodeProgress.errors.length} échecs`);
     } catch (err) {
-      console.error('[Geocode] Erreur batch:', err.message);
+      console.error('[Geocode] Erreur fatale batch:', err.message);
+      geocodeProgress.errors.push({ reason: 'batch_fatal: ' + err.message });
     } finally {
       geocodeQueueRunning = false;
     }
@@ -2209,7 +2228,8 @@ app.get('/api/admin/geocode-status', (req, res) => {
     total,
     geocoded,
     sansCoords: total - geocoded,
-    inProgress: geocodeQueueRunning
+    inProgress: geocodeQueueRunning,
+    progress: geocodeProgress
   });
 });
 
