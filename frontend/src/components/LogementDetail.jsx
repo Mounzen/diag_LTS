@@ -52,13 +52,17 @@ export default function LogementDetail({ detail, meta, user, onUpdated, onStart,
   return (
     <div className="panel detailPanel">
       {showDevisForm && (
-        <DevisForm
-          logement={logement}
-          prefilledPostes={(latest?.items || []).filter((it) => ['dangereux', 'tres_degrade', 'degrade'].includes(it.etat)).map((it) => it.element || it.item).slice(0, 8)}
-          user={user}
-          onCreated={() => setShowDevisForm(false)}
-          onCancel={() => setShowDevisForm(false)}
-        />
+        <div className="modalOverlay" onClick={(e) => { if (e.target === e.currentTarget) setShowDevisForm(false); }}>
+          <div className="modalContent">
+            <DevisForm
+              logement={logement}
+              prefilledPostes={(latest?.items || []).filter((it) => ['dangereux', 'tres_degrade', 'degrade'].includes(it.etat)).map((it) => it.element || it.item).slice(0, 8)}
+              user={user}
+              onCreated={() => setShowDevisForm(false)}
+              onCancel={() => setShowDevisForm(false)}
+            />
+          </div>
+        </div>
       )}
       <div className="sectionTitle">
         <div><h1>{logement.code_acces}</h1><p>{logement.adresse}</p></div>

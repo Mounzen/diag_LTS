@@ -1,11 +1,12 @@
 import React from 'react';
-import { BarChart3, CalendarClock, ClipboardCheck, FileText, LogOut, Menu, User } from 'lucide-react';
+import { Archive, BarChart3, CalendarClock, ClipboardCheck, FileText, LogOut, Menu, User } from 'lucide-react';
 import BrandLogo from './BrandLogo';
 
 const nav = [
   ['terrain', 'Terrain', ClipboardCheck],
   ['dashboard', 'Bureau', BarChart3],
   ['planning', 'Planning', CalendarClock],
+  ['archive', 'Archive', Archive],
   ['exports', 'Exports', FileText]
 ];
 

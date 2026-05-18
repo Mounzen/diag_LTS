@@ -1032,3 +1032,22 @@ th { color: #667085; font-size: 13px; }
 .devisForm .formActions{display:flex;justify-content:flex-end;gap:10px}
 .devisForm .formActions button{display:inline-flex;align-items:center;gap:6px}
 .devisForm .error{color:#b42318;background:#fee;padding:8px 12px;border-radius:6px;margin-bottom:12px}
+
+/* === Archive === */
+.archiveYear{margin-top:24px}
+.archiveYear h2{display:flex;align-items:baseline;gap:10px;color:#1457a8;border-bottom:2px solid #e2e8f0;padding-bottom:8px}
+.archiveTimeline{display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:14px;margin-top:18px}
+.archiveCard{border:1px solid #e2e8f0;border-radius:8px;padding:14px;background:#fff}
+.archiveCard header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px}
+.archiveCard dl{margin:0;display:grid;gap:6px;font-size:13px}
+.archiveCard dl > div{display:flex;justify-content:space-between;gap:8px}
+.archiveCard dt{color:#64748b;font-weight:500}
+.archiveCard dd{margin:0;font-weight:600}
+.evolNeg{color:#b42318;font-weight:600}
+.evolPos{color:#067647;font-weight:600}
+
+/* === Modal overlay === */
+.modalOverlay{position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:1000;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;backdrop-filter:blur(2px)}
+.modalContent{background:#fff;border-radius:10px;padding:24px;max-width:760px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);max-height:calc(100vh - 80px);overflow-y:auto;animation:modalIn 0.2s ease-out}
+@keyframes modalIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@media (max-width:600px){.modalContent{padding:16px;max-height:calc(100vh - 60px)}.devisForm .formGrid{grid-template-columns:1fr}.devisForm .formGrid label.wide{grid-column:span 1}}

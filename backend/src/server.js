@@ -1495,6 +1495,77 @@ app.delete('/api/devis/:id/upload', (req, res) => {
   res.json(devis);
 });
 
+
+// ============================================================================
+// Archive diagnostics par année
+// ============================================================================
+
+app.get('/api/archive/diagnostics', (req, res) => {
+  const db = loadDb();
+  const annee = req.query.annee ? Number(req.query.annee) : null;
+  const secteur = req.query.secteur || null;
+  const logementsById = new Map(db.logements.map((l) => [l.id, l]));
+  const grouped = {};
+  for (const diag of db.diagnostics || []) {
+    const date = diag.dateModification || diag.dateValidation || diag.date;
+    if (!date) continue;
+    const year = new Date(date).getFullYear();
+    if (annee && year !== annee) continue;
+    const logement = logementsById.get(diag.logementId || diag.logement_id);
+    if (!logement) continue;
+    if (secteur && logement.secteur !== secteur) continue;
+    grouped[year] = grouped[year] || [];
+    grouped[year].push({
+      id: diag.id,
+      logementId: logement.id,
+      code_acces: logement.code_acces,
+      adresse: logement.adresse,
+      secteur: logement.secteur,
+      code_lts: logement.code_lts,
+      statutPatrimonial: logement.statutPatrimonial,
+      dateDiagnostic: date,
+      statut: diag.statut,
+      urgenceGlobale: diag.urgenceGlobale || diag.priorite,
+      coutTotal: Number(diag.coutTotal || 0),
+      agent: diag.agent?.prenom || diag.agent?.nom || null
+    });
+  }
+  // Trier chaque année par date décroissante
+  for (const year in grouped) {
+    grouped[year].sort((a, b) => String(b.dateDiagnostic).localeCompare(String(a.dateDiagnostic)));
+  }
+  // Retourner trié par année décroissante
+  const years = Object.keys(grouped).map(Number).sort((a, b) => b - a);
+  const payload = years.map((y) => ({
+    annee: y,
+    count: grouped[y].length,
+    budgetTotal: grouped[y].reduce((s, d) => s + d.coutTotal, 0),
+    diagnostics: grouped[y]
+  }));
+  res.json(payload);
+});
+
+app.get('/api/archive/logement/:id/historique', (req, res) => {
+  const db = loadDb();
+  const logement = db.logements.find((l) => l.id === req.params.id);
+  if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+  const diags = (db.diagnostics || [])
+    .filter((d) => (d.logementId || d.logement_id) === logement.id)
+    .map((d) => ({
+      id: d.id,
+      date: d.dateModification || d.dateValidation || d.date,
+      annee: new Date(d.dateModification || d.dateValidation || d.date).getFullYear(),
+      statut: d.statut,
+      urgenceGlobale: d.urgenceGlobale || d.priorite,
+      coutTotal: Number(d.coutTotal || 0),
+      itemsCount: (d.items || []).length,
+      itemsDegrades: (d.items || []).filter((i) => ['degrade', 'tres_degrade', 'dangereux'].includes(i.etat)).length,
+      agent: d.agent?.prenom || d.agent?.nom || null
+    }))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  res.json({ logement: { id: logement.id, code_acces: logement.code_acces, adresse: logement.adresse }, historique: diags });
+});
+
 app.use((error, req, res, next) => {
   console.error(error);
   res.status(error.status || 500).json({ message: error.message || 'Erreur serveur' });

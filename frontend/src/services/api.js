@@ -60,5 +60,7 @@ export const api = {
     fd.append('devisPdf', file);
     return request(`/api/devis/${encodeURIComponent(id)}/upload`, { method: 'POST', body: fd });
   },
-  deleteDevisPdf: (id) => request(`/api/devis/${encodeURIComponent(id)}/upload`, { method: 'DELETE' })
+  deleteDevisPdf: (id) => request(`/api/devis/${encodeURIComponent(id)}/upload`, { method: 'DELETE' }),
+  archiveDiagnostics: (params = {}) => request(`/api/archive/diagnostics${qs(params)}`),
+  archiveHistorique: (logementId) => request(`/api/archive/logement/${encodeURIComponent(logementId)}/historique`)
 };
