@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { CalendarClock, FileText, Paperclip, Plus, RefreshCw, Trash2, X } from 'lucide-react';
-import { api, API_URL } from '../services/api';
+import { api, assetUrl } from '../services/api';
 import { Loading, Select } from '../components/ui';
 import DevisForm from '../components/DevisForm';
 
@@ -208,7 +208,7 @@ export default function PlanningPage({ user }) {
                   <td>
                     {d.pdfUrl ? (
                       <span className="pdfCell">
-                        <a href={`${API_URL}${d.pdfUrl}`} target="_blank" rel="noreferrer" title={d.pdfOriginalName || 'Voir le PDF'}><FileText size={14} /> Voir</a>
+                        <a href={assetUrl(d.pdfUrl)} target="_blank" rel="noreferrer" title={d.pdfOriginalName || 'Voir le PDF'}><FileText size={14} /> Voir</a>
                         <button onClick={() => removePdf(d)} title="Supprimer PDF" className="iconBtn"><X size={12} /></button>
                       </span>
                     ) : (

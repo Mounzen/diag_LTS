@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Camera, CheckCircle2, ImagePlus, Save } from 'lucide-react';
-import { api, API_URL } from '../services/api';
+import { api, assetUrl } from '../services/api';
 import { ETATS, URGENCES } from '../config/options';
 import { badgeClass, label, money } from '../utils/format';
 import { Select } from './ui';
@@ -277,7 +277,7 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
                   {['degrade', 'tres_degrade', 'dangereux'].includes(item.etat) && !(item.photos || []).length && <span className="requiredText">Photo obligatoire</span>}
                 </div>
                 <span className="estimate">{money(estimatedCost(item))}</span>
-                {item.photos?.length > 0 && <div className="thumbs">{item.photos.map((url) => <span className="thumb" key={url}><img src={`${API_URL}${url}`} alt="" /><button type="button" onClick={() => removePhoto(item, url)}>Supprimer</button></span>)}</div>}
+                {item.photos?.length > 0 && <div className="thumbs">{item.photos.map((url) => <span className="thumb" key={url}><img src={assetUrl(url)} alt="" /><button type="button" onClick={() => removePhoto(item, url)}>Supprimer</button></span>)}</div>}
               </article>
             ))}
           </section>

@@ -23,10 +23,51 @@ import { ensureDataDirectories, loadDb, loadReferentiel, saveDb, uploadDir } fro
 import { redigerSyntheseExecutive } from './services/aiRedactionService.js';
 import { authRoutes } from './routes/authRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
+import { createClient } from '@supabase/supabase-js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 ensureDataDirectories();
+
+// === Supabase Storage (photos + PDFs devis) ===
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+const SUPABASE_BUCKET = process.env.SUPABASE_BUCKET || 'diag-lts-photos';
+const supabase = (SUPABASE_URL && SUPABASE_SERVICE_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } })
+  : null;
+if (supabase) {
+  console.log(`[Storage] Supabase actif sur bucket "${SUPABASE_BUCKET}"`);
+} else {
+  console.warn('[Storage] Supabase non configuré, fallback disque local /uploads');
+}
+
+async function uploadFileToSupabase(filename, buffer, contentType) {
+  if (!supabase) return null;
+  const { error } = await supabase.storage
+    .from(SUPABASE_BUCKET)
+    .upload(filename, buffer, { contentType, upsert: false, cacheControl: '3600' });
+  if (error) {
+    console.error('[Storage] Upload Supabase échec:', error.message);
+    throw new Error('Upload Supabase échoué: ' + error.message);
+  }
+  const { data } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(filename);
+  return data.publicUrl;
+}
+
+async function deleteFileFromSupabase(filename) {
+  if (!supabase) return;
+  try {
+    await supabase.storage.from(SUPABASE_BUCKET).remove([filename]);
+  } catch (err) {
+    console.error('[Storage] Delete Supabase échec:', err.message);
+  }
+}
+
+function isSupabaseUrl(url) {
+  return Boolean(url && url.startsWith('http'));
+}
+
 
 const DIAGNOSTIC_TEMPLATE = [
   { zone: 'Extérieur', items: ['Façade', 'Peinture extérieure', 'Clôture', 'Cour', 'Accès / cheminement'] },
@@ -588,11 +629,35 @@ function reportHtml(title, body) {
 body{font-family:Arial,sans-serif;color:#172033;margin:32px}h1{margin:0 0 8px}h2{margin-top:28px}.muted{color:#667085}.officialHeader{display:flex;align-items:center;gap:18px;border-bottom:3px solid #1457a8;padding-bottom:14px;margin-bottom:22px}.reportLogo{width:210px;height:auto;flex:0 0 auto}.synthese{margin:22px 0 28px;padding:18px 22px;background:#f7f9fc;border-left:4px solid #1457a8;border-radius:6px}.synthese h2{margin-top:0;margin-bottom:12px;color:#1457a8;font-size:18px}.synthese p{text-align:justify;line-height:1.55;margin:0 0 10px;font-size:13px}.synthese p:last-child{margin-bottom:0}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.kpi{border:1px solid #ddd;border-radius:8px;padding:12px;background:#fafafa}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border-bottom:1px solid #ddd;text-align:left;padding:8px;font-size:12px;vertical-align:top}th{background:#f1f5f9}.badge{font-weight:700;border-radius:999px;padding:3px 7px;background:#eef2f6}.badge.dangereux,.badge.tres_degrade,.badge.urgente{background:#b42318;color:#fff}.badge.degrade,.badge.haute{background:#ffebe7;color:#b42318}.photoReportGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:12px}.photoFigure{break-inside:avoid;margin:0;border:1px solid #ddd;border-radius:8px;padding:8px}.photoFigure img{width:100%;height:180px;object-fit:cover;border-radius:6px}.photoFigure figcaption{font-size:12px;color:#667085;margin-top:6px}.signatureGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.signatureBox{border:1px solid #bbb;border-radius:8px;min-height:92px;padding:10px}.print{position:fixed;right:24px;top:24px}@media print{.print{display:none}body{margin:12mm}.photoReportGrid{grid-template-columns:repeat(2,1fr)}} </style></head><body><button class="print" onclick="window.print()">Imprimer / PDF</button>${body}</body></html>`;
 }
 
-const storage = multer.diskStorage({
-  destination: uploadDir,
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`)
-});
-const upload = multer({ storage });
+// Multer en mémoire : on traite le buffer puis on l'envoie sur Supabase (ou disque en fallback)
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+async function saveUploadedFile(file) {
+  const ext = path.extname(file.originalname) || '';
+  const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+  if (supabase) {
+    const url = await uploadFileToSupabase(filename, file.buffer, file.mimetype);
+    return { filename, url, storage: 'supabase' };
+  }
+  // Fallback disque local
+  const filePath = path.join(uploadDir, filename);
+  fs.writeFileSync(filePath, file.buffer);
+  return { filename, url: `/uploads/${filename}`, storage: 'local' };
+}
+
+async function removeUploadedFile(filename) {
+  if (!filename) return;
+  if (supabase) {
+    await deleteFileFromSupabase(filename);
+    return;
+  }
+  try {
+    const filePath = path.join(uploadDir, filename);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch (err) {
+    console.error('[Storage] Local delete échec:', err.message);
+  }
+}
 
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
@@ -902,15 +967,17 @@ app.post('/api/diagnostics/:id/validate', (req, res, next) => {
   }
 });
 
-app.post('/api/uploads', upload.single('photo'), (req, res) => {
-  if (!req.file) return res.status(400).json({ message: 'Photo manquante' });
-  const db = loadDb();
-  const agent = db.users.find((user) => user.id === req.body.agentId);
-  const now = new Date().toISOString();
-  const photo = {
-    id: `PHO-${Date.now()}-${Math.round(Math.random() * 10000)}`,
-    url: `/uploads/${req.file.filename}`,
-    filename: req.file.filename,
+app.post('/api/uploads', upload.single('photo'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'Photo manquante' });
+    const stored = await saveUploadedFile(req.file);
+    const db = loadDb();
+    const agent = db.users.find((user) => user.id === req.body.agentId);
+    const now = new Date().toISOString();
+    const photo = {
+      id: `PHO-${Date.now()}-${Math.round(Math.random() * 10000)}`,
+      url: stored.url,
+      filename: stored.filename,
     originalName: req.file.originalname,
     logementId: req.body.logementId || '',
     diagnosticId: req.body.diagnosticId || '',
@@ -939,36 +1006,43 @@ app.post('/api/uploads', upload.single('photo'), (req, res) => {
   }
   saveDb(db);
   res.status(201).json(photo);
+  } catch (err) { next(err); }
 });
 
-app.delete('/api/uploads/:id', (req, res) => {
-  const db = loadDb();
-  const photo = db.photos.find((p) => p.id === req.params.id || p.url === req.params.id);
-  if (!photo) return res.status(404).json({ message: 'Photo introuvable' });
-  photo.deletedAt = new Date().toISOString();
-  appendJournal(db, 'photo_suppression', {
-    photoId: photo.id,
-    logementId: photo.logementId,
-    diagnosticId: photo.diagnosticId,
-    agentId: req.body?.agentId || photo.agentId || ''
-  });
-  for (const diagnostic of db.diagnostics) {
-    diagnostic.photos = (diagnostic.photos || []).filter((diagnosticPhoto) => (
-      typeof diagnosticPhoto === 'string'
-        ? diagnosticPhoto !== photo.url
-        : diagnosticPhoto?.url !== photo.url && diagnosticPhoto?.id !== photo.id
-    ));
-    for (const item of diagnostic.items || []) {
-      item.photos = (item.photos || []).filter((url) => url !== photo.url);
+app.delete('/api/uploads/:id', async (req, res, next) => {
+  try {
+    const db = loadDb();
+    const photo = db.photos.find((p) => p.id === req.params.id || p.url === req.params.id);
+    if (!photo) return res.status(404).json({ message: 'Photo introuvable' });
+    photo.deletedAt = new Date().toISOString();
+    appendJournal(db, 'photo_suppression', {
+      photoId: photo.id,
+      logementId: photo.logementId,
+      diagnosticId: photo.diagnosticId,
+      agentId: req.body?.agentId || photo.agentId || ''
+    });
+    for (const diagnostic of db.diagnostics) {
+      diagnostic.photos = (diagnostic.photos || []).filter((diagnosticPhoto) => (
+        typeof diagnosticPhoto === 'string'
+          ? diagnosticPhoto !== photo.url
+          : diagnosticPhoto?.url !== photo.url && diagnosticPhoto?.id !== photo.id
+      ));
+      for (const item of diagnostic.items || []) {
+        item.photos = (item.photos || []).filter((url) => url !== photo.url);
+      }
     }
-  }
-  saveDb(db);
-  res.json({ ok: true, photo });
+    if (photo.filename) await removeUploadedFile(photo.filename);
+    saveDb(db);
+    res.json({ ok: true, photo });
+  } catch (err) { next(err); }
 });
 
-app.post('/api/photos', upload.single('photo'), (req, res) => {
+app.post('/api/photos', upload.single('photo'), async (req, res, next) => {
+  try {
   if (!req.file) return res.status(400).json({ message: 'Photo manquante' });
-  res.json({ url: `/uploads/${req.file.filename}`, filename: req.file.filename });
+  const stored = await saveUploadedFile(req.file);
+    res.json({ url: stored.url, filename: stored.filename });
+  } catch (err) { next(err); }
 });
 
 app.get('/api/dashboard', (req, res) => {
@@ -1427,72 +1501,55 @@ app.put('/api/devis/:id', (req, res) => {
   res.json(devis);
 });
 
-app.delete('/api/devis/:id', (req, res) => {
-  const db = loadDb();
-  const idx = (db.devis || []).findIndex((d) => d.id === req.params.id);
-  if (idx < 0) return res.status(404).json({ message: 'Devis introuvable' });
-  const [removed] = db.devis.splice(idx, 1);
-  // Supprimer le fichier PDF associé s'il existe
-  if (removed.pdfFilename) {
-    try {
-      const filePath = path.join(uploadDir, removed.pdfFilename);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    } catch (err) {
-      console.error('Erreur suppression PDF devis:', err.message);
-    }
-  }
-  appendJournal(db, 'devis_supprime', { devisId: removed.id });
-  saveDb(db);
-  res.json({ ok: true });
+app.delete('/api/devis/:id', async (req, res, next) => {
+  try {
+    const db = loadDb();
+    const idx = (db.devis || []).findIndex((d) => d.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ message: 'Devis introuvable' });
+    const [removed] = db.devis.splice(idx, 1);
+    if (removed.pdfFilename) await removeUploadedFile(removed.pdfFilename);
+    appendJournal(db, 'devis_supprime', { devisId: removed.id });
+    saveDb(db);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
 });
 
 // Upload du PDF du devis (PDF reçu de l'entreprise)
-app.post('/api/devis/:id/upload', upload.single('devisPdf'), (req, res) => {
-  if (!req.file) return res.status(400).json({ message: 'Fichier manquant' });
-  const db = loadDb();
-  const devis = findDevis(db, req.params.id);
-  if (!devis) {
-    // Nettoyer le fichier orphelin
-    try { fs.unlinkSync(path.join(uploadDir, req.file.filename)); } catch {}
-    return res.status(404).json({ message: 'Devis introuvable' });
-  }
-  // Supprimer l'ancien fichier si existant
-  if (devis.pdfFilename) {
-    try {
-      const oldPath = path.join(uploadDir, devis.pdfFilename);
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-    } catch (err) {
-      console.error('Erreur suppression ancien PDF:', err.message);
+app.post('/api/devis/:id/upload', upload.single('devisPdf'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'Fichier manquant' });
+    const db = loadDb();
+    const devis = findDevis(db, req.params.id);
+    if (!devis) return res.status(404).json({ message: 'Devis introuvable' });
+    // Supprimer l'ancien fichier si existant
+    if (devis.pdfFilename) {
+      await removeUploadedFile(devis.pdfFilename);
     }
-  }
-  devis.pdfFilename = req.file.filename;
-  devis.pdfUrl = `/uploads/${req.file.filename}`;
-  devis.pdfOriginalName = req.file.originalname;
-  devis.updatedAt = new Date().toISOString();
-  appendJournal(db, 'devis_pdf_upload', { devisId: devis.id, filename: req.file.filename });
-  saveDb(db);
-  res.json(devis);
+    const stored = await saveUploadedFile(req.file);
+    devis.pdfFilename = stored.filename;
+    devis.pdfUrl = stored.url;
+    devis.pdfOriginalName = req.file.originalname;
+    devis.updatedAt = new Date().toISOString();
+    appendJournal(db, 'devis_pdf_upload', { devisId: devis.id, filename: stored.filename });
+    saveDb(db);
+    res.json(devis);
+  } catch (err) { next(err); }
 });
 
-app.delete('/api/devis/:id/upload', (req, res) => {
-  const db = loadDb();
-  const devis = findDevis(db, req.params.id);
-  if (!devis) return res.status(404).json({ message: 'Devis introuvable' });
-  if (devis.pdfFilename) {
-    try {
-      const filePath = path.join(uploadDir, devis.pdfFilename);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    } catch (err) {
-      console.error('Erreur suppression PDF:', err.message);
-    }
-  }
-  delete devis.pdfFilename;
-  delete devis.pdfUrl;
-  delete devis.pdfOriginalName;
-  devis.updatedAt = new Date().toISOString();
-  appendJournal(db, 'devis_pdf_supprime', { devisId: devis.id });
-  saveDb(db);
-  res.json(devis);
+app.delete('/api/devis/:id/upload', async (req, res, next) => {
+  try {
+    const db = loadDb();
+    const devis = findDevis(db, req.params.id);
+    if (!devis) return res.status(404).json({ message: 'Devis introuvable' });
+    if (devis.pdfFilename) await removeUploadedFile(devis.pdfFilename);
+    delete devis.pdfFilename;
+    delete devis.pdfUrl;
+    delete devis.pdfOriginalName;
+    devis.updatedAt = new Date().toISOString();
+    appendJournal(db, 'devis_pdf_supprime', { devisId: devis.id });
+    saveDb(db);
+    res.json(devis);
+  } catch (err) { next(err); }
 });
 
 

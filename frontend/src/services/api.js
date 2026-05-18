@@ -24,6 +24,14 @@ function qs(params = {}) {
 
 export const exportUrl = (path, params = {}) => `${API_URL}${path}${qs(params)}`;
 
+// Retourne l'URL absolue d'un asset (photo, PDF). Si l'URL est déjà absolue (http*), la retourne telle quelle.
+// Sinon préfixe avec API_URL (cas des anciens uploads en /uploads/...).
+export const assetUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `${API_URL}${url}`;
+};
+
 export const api = {
   login: (payload) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
   meta: () => request('/api/meta'),

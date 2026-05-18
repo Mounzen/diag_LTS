@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FileText, Play, Plus, RefreshCw, Save } from 'lucide-react';
-import { api, API_URL, exportUrl } from '../services/api';
+import { api, assetUrl, exportUrl } from '../services/api';
 import { badgeClass, label, money, patrimoineLabel } from '../utils/format';
 import { URGENCES } from '../config/options';
 import { Fact, Select } from './ui';
@@ -128,7 +128,7 @@ export default function LogementDetail({ detail, meta, user, onUpdated, onStart,
               <div className="photoGrid">
                 {zonePhotos.map((photo) => (
                   <figure className="photoCard" key={photo.id}>
-                    <img src={`${API_URL}${photo.url}`} alt={photo.element || 'Photo diagnostic'} />
+                    <img src={assetUrl(photo.url)} alt={photo.element || 'Photo diagnostic'} />
                     <figcaption>
                       <strong>{photo.element || 'Élément non renseigné'}</strong>
                       <span>{new Date(photo.date || photo.dateHeure).toLocaleString('fr-FR')}</span>
