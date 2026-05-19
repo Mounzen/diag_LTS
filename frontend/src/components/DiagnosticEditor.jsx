@@ -372,41 +372,67 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
                 <Select label="Urgence" value={item.urgence} onChange={(value) => patchItem(item.id, { urgence: value })} options={urgenceOptions} />
                 <label className="full">Commentaire{item.etat === 'dangereux' && <small className="requiredText">Obligatoire si dangereux</small>}<textarea required={item.etat === 'dangereux'} value={item.commentaire || ''} onChange={(event) => patchItem(item.id, { commentaire: event.target.value })} /></label>
 
-                {/* Détails pour devis : dimensions + types pour portes/fenêtres */}
-                <details className="dimensionsBlock">
-                  <summary>📐 Détails dimensions / type (pour devis)</summary>
-                  <div className="dimensionsGrid">
-                    <Select label="Unité" value={item.unite || 'forfait'} onChange={(value) => patchItem(item.id, { unite: value })} options={UNITE_OPTIONS} />
-                    <label>Quantité<input type="number" min="0" step="0.01" value={item.quantite ?? 1} onChange={(e) => patchItem(item.id, { quantite: Number(e.target.value) || 0 })} /></label>
-                    {(isPorte(item) || isFenetre(item) || isSurfacique(item) || isLineaire(item)) && (
-                      <>
-                        <label>Hauteur (cm)<input type="number" min="0" value={item.hauteur || ''} onChange={(e) => patchItem(item.id, { hauteur: Number(e.target.value) || 0 })} /></label>
-                        <label>Largeur (cm)<input type="number" min="0" value={item.largeur || ''} onChange={(e) => patchItem(item.id, { largeur: Number(e.target.value) || 0 })} /></label>
-                      </>
-                    )}
-                    {isPorte(item) && (
-                      <>
-                        <Select label="Ouvrant" value={item.typeOuvrant || ''} onChange={(value) => patchItem(item.id, { typeOuvrant: value })} options={OUVRANT_OPTIONS} />
-                        <Select label="Matériau porte" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={MATERIAU_PORTE_OPTIONS} />
-                        <Select label="Volet" value={item.volet || ''} onChange={(value) => patchItem(item.id, { volet: value })} options={VOLET_OPTIONS} />
-                      </>
-                    )}
-                    {isFenetre(item) && !isJalousie(item) && (
-                      <>
-                        <Select label="Type fenêtre" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={MATERIAU_FENETRE_OPTIONS} />
-                        <Select label="Volet" value={item.volet || ''} onChange={(value) => patchItem(item.id, { volet: value })} options={VOLET_OPTIONS} />
-                      </>
-                    )}
-                    {isJalousie(item) && (
-                      <>
-                        <Select label="Matériau jalousie" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={[['', '—'], ['jalousie_alu', 'Alu'], ['jalousie_bois', 'Bois']]} />
-                      </>
-                    )}
-                    {isSol(item) && (
-                      <Select label="Type de sol" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={SOL_OPTIONS} />
-                    )}
-                  </div>
-                </details>
+                {/* Détails pour devis : dimensions + types pour portes/fenêtres/sols */}
+                {(() => {
+                  const needsDims = isPorte(item) || isFenetre(item) || isJalousie(item) || isSurfacique(item) || isLineaire(item);
+                  return (
+                    <details className="dimensionsBlock" {...(needsDims ? { open: true } : {})}>
+                      <summary>📐 Détails dimensions / type {needsDims ? '(requis pour devis)' : '(optionnel)'}</summary>
+                      <div className="dimensionsGrid">
+                        <Select label="Unité" value={item.unite || (isSol(item) || isSurfacique(item) ? 'm2' : isLineaire(item) ? 'ml' : 'u')} onChange={(value) => patchItem(item.id, { unite: value })} options={UNITE_OPTIONS} />
+                        <label>Quantité<input type="number" min="0" step="0.01" value={item.quantite ?? 1} onChange={(e) => patchItem(item.id, { quantite: Number(e.target.value) || 0 })} /></label>
+                        {needsDims && (
+                          <>
+                            <label>Hauteur (cm)<input type="number" min="0" placeholder="ex: 210" value={item.hauteur || ''} onChange={(e) => {
+                              const h = Number(e.target.value) || 0;
+                              const patch = { hauteur: h };
+                              // Auto-calc quantité selon unité
+                              if (item.unite === 'm2' && h > 0 && item.largeur > 0) {
+                                patch.quantite = Math.round(h * item.largeur) / 10000;
+                              }
+                              patchItem(item.id, patch);
+                            }} /></label>
+                            <label>Largeur (cm)<input type="number" min="0" placeholder="ex: 90" value={item.largeur || ''} onChange={(e) => {
+                              const l = Number(e.target.value) || 0;
+                              const patch = { largeur: l };
+                              if (item.unite === 'm2' && l > 0 && item.hauteur > 0) {
+                                patch.quantite = Math.round(item.hauteur * l) / 10000;
+                              } else if (item.unite === 'ml' && l > 0) {
+                                patch.quantite = Math.round(l) / 100;
+                              }
+                              patchItem(item.id, patch);
+                            }} /></label>
+                            {item.hauteur > 0 && item.largeur > 0 && (
+                              <div className="surfaceCalcul">
+                                <span className="caracLabel">Surface calculée</span>
+                                <strong>{((item.hauteur * item.largeur) / 10000).toFixed(2)} m²</strong>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {isPorte(item) && (
+                          <>
+                            <Select label="Ouvrant" value={item.typeOuvrant || ''} onChange={(value) => patchItem(item.id, { typeOuvrant: value })} options={OUVRANT_OPTIONS} />
+                            <Select label="Matériau porte" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={MATERIAU_PORTE_OPTIONS} />
+                            <Select label="Volet" value={item.volet || ''} onChange={(value) => patchItem(item.id, { volet: value })} options={VOLET_OPTIONS} />
+                          </>
+                        )}
+                        {isFenetre(item) && !isJalousie(item) && (
+                          <>
+                            <Select label="Type fenêtre" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={MATERIAU_FENETRE_OPTIONS} />
+                            <Select label="Volet" value={item.volet || ''} onChange={(value) => patchItem(item.id, { volet: value })} options={VOLET_OPTIONS} />
+                          </>
+                        )}
+                        {isJalousie(item) && (
+                          <Select label="Matériau jalousie" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={[['', '—'], ['jalousie_alu', 'Alu'], ['jalousie_bois', 'Bois']]} />
+                        )}
+                        {isSol(item) && (
+                          <Select label="Type de sol" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={SOL_OPTIONS} />
+                        )}
+                      </div>
+                    </details>
+                  );
+                })()}
 
                 <div className="photoActions">
                   <label className="uploadBtn primaryPhoto"><Camera size={18} /> Prendre photo<input type="file" accept="image/*" capture="environment" onChange={(event) => { addPhoto(item, event.target.files?.[0], 'terrain'); event.target.value = ''; }} /></label>

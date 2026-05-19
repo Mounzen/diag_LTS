@@ -1153,3 +1153,6 @@ th { color: #667085; font-size: 13px; }
 .caracCheckbox input[type="checkbox"]{width:16px;height:16px}
 .caracField small{font-size:11px;line-height:1.3;color:#64748b}
 .caracFooter{display:flex;align-items:center;gap:12px;margin-top:16px}
+
+.surfaceCalcul{display:flex;flex-direction:column;gap:2px;padding:6px 10px;background:#dbeafe;border-radius:6px;border:1px solid #93c5fd}
+.surfaceCalcul strong{color:#1d4ed8;font-size:14px;font-weight:700}
