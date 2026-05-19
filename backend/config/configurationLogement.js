@@ -33,15 +33,40 @@ export const ELEMENTS_PAR_TYPE_PIECE = {
 };
 
 export const DIAGNOSTIC_SOCLE_LOGEMENT = [
-  { zone: 'Extérieur', elements: ['Extérieur', 'Cour', 'Portail', 'Clôture', 'Façade'] },
+  { zone: 'Extérieur', elements: ['Façade', 'Peinture extérieure'] },
   { zone: 'Toiture / étanchéité', elements: ['Toiture', 'Étanchéité', 'Eaux pluviales'] },
   { zone: 'Évacuation / assainissement', elements: ['Évacuation', 'Assainissement'] },
   { zone: 'Entrée / menuiserie', elements: ['Porte entrée', 'Menuiserie'] },
-  { zone: 'Structure intérieure', elements: ['Sols', 'Murs', 'Peinture', 'Plafonds', 'Faux plafonds'] },
+  { zone: 'Structure intérieure', elements: ['Sols', 'Murs', 'Peinture intérieure', 'Plafonds', 'Faux plafonds'] },
   { zone: 'Réseaux', elements: ['Électricité', 'Plomberie', 'Ventilation', 'Humidité'] },
   { zone: 'Pièces techniques', elements: ['Cuisine', 'Salle de bain', 'WC'] },
   { zone: 'Sécurité / accessibilité', elements: ['Sécurité', 'Accessibilité', 'Risques occupants'] }
 ];
+
+// Éléments spécifiques selon le contexte du logement
+export const ELEMENTS_TOITURE_TOLE = ['Tôles couverture', 'Faîtage tôle', 'Fixations / boulons', 'Corrosion tôle', 'Solins / arêtiers'];
+export const ELEMENTS_COUR_AVANT_RDC = ['Courette avant', 'Portillon avant', 'Clôture avant', 'Accès / cheminement avant'];
+export const ELEMENTS_COUR_ARRIERE_RDC = ['Cour arrière', 'Clôture arrière', 'Portillon arrière'];
+export const ELEMENTS_ACCES_ETAGE = ['Escalier d\'accès', 'Palier', 'Balcon / loggia', 'Garde-corps balcon'];
+
+export function buildContextualSections(logement = {}) {
+  const sections = [];
+  // Toiture tôle (universel par défaut)
+  const couverture = logement.couverture || 'tole';
+  if (couverture === 'tole') {
+    sections.push({ zone: 'Toiture tôle', elements: ELEMENTS_TOITURE_TOLE });
+  }
+  // Étage : cours pour RDC, balcon pour étages
+  const etage = logement.etage || 'RDC';
+  const hasCours = logement.hasCours !== false;
+  if (etage === 'RDC' && hasCours) {
+    sections.push({ zone: 'Cour avant (RDC)', elements: ELEMENTS_COUR_AVANT_RDC });
+    sections.push({ zone: 'Cour arrière (RDC)', elements: ELEMENTS_COUR_ARRIERE_RDC });
+  } else if (etage && etage !== 'RDC') {
+    sections.push({ zone: 'Accès étage', elements: ELEMENTS_ACCES_ETAGE });
+  }
+  return sections;
+}
 
 export function createDefaultConfiguration(logement = {}, existing = {}) {
   return {
@@ -108,7 +133,9 @@ export function buildDiagnosticItemsFromConfiguration(logement, configuration, p
   const byId = new Map(existingItems.map((item) => [item.id, item]));
   const generated = [];
 
-  for (const group of DIAGNOSTIC_SOCLE_LOGEMENT) {
+  // Socle commun + sections contextuelles (toiture tôle, cours RDC ou accès étage)
+  const allSections = [...DIAGNOSTIC_SOCLE_LOGEMENT, ...buildContextualSections(logement)];
+  for (const group of allSections) {
     for (const element of group.elements) {
       const id = itemId(['socle', group.zone, element]);
       generated.push({

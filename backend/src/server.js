@@ -2542,6 +2542,40 @@ app.get('/api/exports/consultation/logement/:id.xlsx', (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+
+// Mise à jour des caractéristiques structurelles d'un logement (étage, couverture, cours)
+app.put('/api/logements/:id/caracteristiques', (req, res) => {
+  const db = loadDb();
+  const logement = db.logements.find((l) => l.id === req.params.id);
+  if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+  const before = { etage: logement.etage, couverture: logement.couverture, hasCours: logement.hasCours };
+  const updates = {};
+  if (req.body.etage !== undefined) {
+    const validEtages = ['RDC', 'N+1', 'N+2', 'N+3'];
+    if (validEtages.includes(req.body.etage)) {
+      logement.etage = req.body.etage;
+      updates.etage = req.body.etage;
+    }
+  }
+  if (req.body.couverture !== undefined) {
+    logement.couverture = String(req.body.couverture);
+    updates.couverture = logement.couverture;
+  }
+  if (req.body.hasCours !== undefined) {
+    logement.hasCours = Boolean(req.body.hasCours);
+    updates.hasCours = logement.hasCours;
+  }
+  appendJournal(db, 'logement_caracteristiques_update', {
+    logementId: logement.id,
+    code_acces: logement.code_acces,
+    before,
+    updates,
+    agentId: req.body.agentId || null
+  });
+  saveDb(db);
+  res.json({ etage: logement.etage, couverture: logement.couverture, hasCours: logement.hasCours });
+});
+
 app.use((error, req, res, next) => {
   console.error(error);
   res.status(error.status || 500).json({ message: error.message || 'Erreur serveur' });

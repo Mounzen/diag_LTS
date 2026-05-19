@@ -83,7 +83,14 @@ export function loadDb() {
   db.users = (db.users || []).map(normalizeUser);
   const usersChanged = ensureSimpleUsers(db);
   db.lts = db.lts || [];
-  db.logements = (db.logements || []).map((logement) => enrichLogementPatrimoine(logement, logement));
+  db.logements = (db.logements || []).map((logement) => {
+    const enriched = enrichLogementPatrimoine(logement, logement);
+    // Valeurs par défaut universelles : tôle, RDC, cours
+    if (enriched.couverture === undefined) enriched.couverture = 'tole';
+    if (enriched.etage === undefined) enriched.etage = 'RDC';
+    if (enriched.hasCours === undefined) enriched.hasCours = true;
+    return enriched;
+  });
   db.secteurs = Array.isArray(db.secteurs) && db.secteurs.length ? db.secteurs : sectors;
   db.diagnostics = db.diagnostics || [];
   db.photos = db.photos || [];

@@ -138,5 +138,6 @@ export const api = {
   logementsWithCoords: () => request('/api/carto/logements'),
   geocodeStatus: () => request('/api/admin/geocode-status'),
   geocodeBatch: (limit = 50) => request('/api/admin/geocode-batch', { method: 'POST', body: JSON.stringify({ limit }) }),
-  geocodeLogement: (id, payload = {}) => request(`/api/logements/${encodeURIComponent(id)}/geocode`, { method: 'POST', body: JSON.stringify(payload) })
+  geocodeLogement: (id, payload = {}) => request(`/api/logements/${encodeURIComponent(id)}/geocode`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateCaracteristiques: (id, payload) => request(`/api/logements/${encodeURIComponent(id)}/caracteristiques`, { method: 'PUT', body: JSON.stringify(payload) })
 };
