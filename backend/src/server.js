@@ -2245,6 +2245,46 @@ app.post('/api/admin/reset-db', async (req, res) => {
   }
 });
 
+
+// Route de DEBUG : teste 1 seul géocodage et retourne TOUT (utile pour comprendre si Nominatim répond)
+app.get('/api/debug/geocode-test', async (req, res) => {
+  const address = req.query.address || '15 Allée des Teks, Saint-Denis, La Réunion, France';
+  const startedAt = Date.now();
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
+    console.log(`[GeocodeTest] Appel Nominatim: ${url}`);
+    const result = await fetch(url, {
+      headers: {
+        'User-Agent': NOMINATIM_USER_AGENT,
+        'Accept': 'application/json'
+      }
+    });
+    const status = result.status;
+    const body = await result.text();
+    const elapsed = Date.now() - startedAt;
+    console.log(`[GeocodeTest] Réponse en ${elapsed}ms, status=${status}`);
+    res.json({
+      ok: result.ok,
+      status,
+      elapsedMs: elapsed,
+      url,
+      userAgent: NOMINATIM_USER_AGENT,
+      bodyPreview: body.slice(0, 500),
+      bodyLength: body.length
+    });
+  } catch (err) {
+    const elapsed = Date.now() - startedAt;
+    console.error(`[GeocodeTest] Erreur en ${elapsed}ms: ${err.message}`);
+    res.status(500).json({
+      ok: false,
+      elapsedMs: elapsed,
+      error: err.message,
+      errorName: err.name,
+      stack: err.stack
+    });
+  }
+});
+
 app.use((error, req, res, next) => {
   console.error(error);
   res.status(error.status || 500).json({ message: error.message || 'Erreur serveur' });
