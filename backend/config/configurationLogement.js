@@ -16,20 +16,188 @@ export const TYPES_PIECES = [
 ];
 
 export const ELEMENTS_PAR_TYPE_PIECE = {
-  chambre: ['Porte', 'Fenêtre', 'Sol', 'Murs', 'Plafond', 'Peinture', 'Électricité', 'Ventilation', 'Humidité'],
-  sejour: ['Porte', 'Fenêtres', 'Sol', 'Murs', 'Plafond', 'Peinture', 'Électricité', 'Ventilation', 'Humidité'],
-  piece_supplementaire: ['Porte', 'Fenêtre', 'Sol', 'Murs', 'Plafond', 'Peinture', 'Électricité', 'Ventilation', 'Humidité', 'Usage constaté'],
-  bureau: ['Porte', 'Fenêtre', 'Sol', 'Murs', 'Plafond', 'Peinture', 'Électricité', 'Ventilation', 'Humidité'],
-  cuisine: ['Sol', 'Murs', 'Plafond', 'Évier', 'Plomberie', 'Évacuation', 'Électricité', 'Ventilation', 'Meubles', 'Faïence'],
-  salle_eau: ['Porte', 'Sol', 'Murs', 'Plafond', 'Douche', 'Lavabo', 'Plomberie', 'Évacuation', 'Ventilation', 'Humidité', 'Faïence'],
-  salle_de_bain: ['Porte', 'Sol', 'Murs', 'Plafond', 'Douche', 'Lavabo', 'Plomberie', 'Évacuation', 'Ventilation', 'Humidité', 'Faïence'],
-  wc: ['Porte', 'Sol', 'Murs', 'Plafond', 'WC', "Chasse d'eau", 'Évacuation', 'Ventilation'],
-  varangue: ['Sol', 'Murs', 'Plafond', 'Électricité', 'Évacuation', 'Sécurité'],
-  terrasse: ['Sol', 'Évacuation', 'Sécurité', 'Accessibilité'],
-  dependance: ['Porte', 'Fenêtre', 'Sol', 'Murs', 'Plafond', 'Électricité', 'Ventilation', 'Sécurité'],
-  garage: ['Porte', 'Sol', 'Murs', 'Plafond', 'Électricité', 'Ventilation', 'Sécurité'],
-  cour: ['Sol', 'Évacuation', 'Clôture', 'Portail', 'Sécurité', 'Accessibilité'],
-  autre: ['Porte', 'Sol', 'Murs', 'Plafond', 'Électricité', 'Ventilation', 'Usage constaté']
+  chambre: [
+    'Porte chambre',
+    'Fenêtre chambre',
+    'Sol chambre',
+    'Murs chambre',
+    'Plafond chambre',
+    'Peinture chambre',
+    'Prises électriques',
+    'Interrupteurs',
+    'Luminaire / point lumineux',
+    'Ventilation',
+    'Humidité / moisissures'
+  ],
+  sejour: [
+    'Porte séjour',
+    'Fenêtres séjour',
+    'Sol séjour',
+    'Murs séjour',
+    'Plafond séjour',
+    'Peinture séjour',
+    'Prises électriques',
+    'Interrupteurs',
+    'Luminaire / point lumineux',
+    'Ventilation',
+    'Humidité / moisissures'
+  ],
+  piece_supplementaire: [
+    'Porte',
+    'Fenêtre',
+    'Sol',
+    'Murs',
+    'Plafond',
+    'Peinture',
+    'Prises électriques',
+    'Interrupteurs',
+    'Luminaire / point lumineux',
+    'Ventilation',
+    'Humidité',
+    'Usage constaté'
+  ],
+  bureau: [
+    'Porte bureau',
+    'Fenêtre bureau',
+    'Sol bureau',
+    'Murs bureau',
+    'Plafond bureau',
+    'Peinture',
+    'Prises électriques',
+    'Interrupteurs',
+    'Luminaire / point lumineux',
+    'Ventilation',
+    'Humidité'
+  ],
+  cuisine: [
+    'Porte cuisine',
+    'Jalousie cuisine',
+    'Sol cuisine',
+    'Murs cuisine',
+    'Plafond cuisine',
+    'Faïence cuisine',
+    'Évier',
+    'Robinetterie cuisine',
+    'Plan de travail',
+    'Meubles cuisine',
+    'Plomberie cuisine',
+    'Évacuation cuisine',
+    'Prises électriques',
+    'Interrupteurs',
+    'Luminaire / point lumineux',
+    'Ventilation',
+    'Humidité'
+  ],
+  salle_eau: [
+    'Porte salle d\'eau',
+    'Jalousie salle d\'eau',
+    'Sol salle d\'eau',
+    'Murs salle d\'eau',
+    'Plafond salle d\'eau',
+    'Faïence',
+    'Douche',
+    'Lavabo',
+    'Robinetterie',
+    'Plomberie',
+    'Évacuation',
+    'Prises électriques',
+    'Interrupteurs',
+    'Luminaire / point lumineux',
+    'Ventilation',
+    'Humidité / moisissures'
+  ],
+  salle_de_bain: [
+    'Porte salle de bain',
+    'Jalousie salle de bain',
+    'Sol salle de bain',
+    'Murs salle de bain',
+    'Plafond salle de bain',
+    'Faïence',
+    'Douche',
+    'Lavabo',
+    'Robinetterie',
+    'Plomberie',
+    'Évacuation',
+    'Prises électriques',
+    'Interrupteurs',
+    'Luminaire / point lumineux',
+    'Ventilation',
+    'Humidité / moisissures'
+  ],
+  wc: [
+    'Porte WC',
+    'Jalousie WC',
+    'Sol WC',
+    'Murs WC',
+    'Plafond WC',
+    'WC (cuvette)',
+    'Chasse d\'eau',
+    'Évacuation WC',
+    'Interrupteurs',
+    'Luminaire / point lumineux',
+    'Ventilation'
+  ],
+  varangue: [
+    'Sol varangue',
+    'Murs varangue',
+    'Plafond varangue',
+    'Garde-corps',
+    'Prises électriques',
+    'Luminaire / point lumineux',
+    'Évacuation',
+    'Sécurité'
+  ],
+  terrasse: [
+    'Sol terrasse',
+    'Garde-corps',
+    'Évacuation',
+    'Étanchéité terrasse',
+    'Sécurité',
+    'Accessibilité'
+  ],
+  dependance: [
+    'Porte',
+    'Fenêtre',
+    'Sol',
+    'Murs',
+    'Plafond',
+    'Prises électriques',
+    'Interrupteurs',
+    'Luminaire',
+    'Ventilation',
+    'Sécurité'
+  ],
+  garage: [
+    'Porte garage',
+    'Sol garage',
+    'Murs',
+    'Plafond',
+    'Prises électriques',
+    'Interrupteurs',
+    'Luminaire',
+    'Ventilation',
+    'Sécurité'
+  ],
+  cour: [
+    'Sol cour',
+    'Évacuation cour',
+    'Clôture',
+    'Portail',
+    'Sécurité',
+    'Accessibilité'
+  ],
+  autre: [
+    'Porte',
+    'Fenêtre',
+    'Sol',
+    'Murs',
+    'Plafond',
+    'Prises électriques',
+    'Interrupteurs',
+    'Luminaire',
+    'Ventilation',
+    'Usage constaté'
+  ]
 };
 
 export const DIAGNOSTIC_SOCLE_LOGEMENT = [
@@ -155,7 +323,11 @@ export function buildDiagnosticItemsFromConfiguration(logement, configuration, p
   }
 
   for (const piece of pieces.filter((p) => p.logementId === logement.id && !p.archivedAt)) {
-    for (const element of piece.elementsDiagnostic || ELEMENTS_PAR_TYPE_PIECE[piece.type] || []) {
+    // Fusion intelligente : éléments existants + nouveaux du template (sans doublons)
+    const templateElements = ELEMENTS_PAR_TYPE_PIECE[piece.type] || [];
+    const existingElements = piece.elementsDiagnostic || [];
+    const allElements = [...new Set([...existingElements, ...templateElements])];
+    for (const element of allElements) {
       const id = itemId(['piece', piece.id, element]);
       generated.push({
         id,

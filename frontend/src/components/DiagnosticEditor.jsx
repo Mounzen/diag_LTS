@@ -18,10 +18,36 @@ const ETAT_COEFS = {
 const URGENCE_RANK = { faible: 1, moyenne: 2, haute: 3, urgente: 4 };
 
 const UNITE_OPTIONS = [['u', 'U (unité)'], ['ml', 'ML (mètre linéaire)'], ['m2', 'm² (surface)'], ['forfait', 'Forfait']];
-const OUVRANT_OPTIONS = [['', '—'], ['simple', 'Simple volet'], ['double', 'Double volet']];
-const MATERIAU_PORTE_OPTIONS = [['', '—'], ['vitree', 'Vitrée'], ['pleine', 'Pleine'], ['mixte', 'Mixte (vitrée + pleine)'], ['isoplane', 'Isoplane']];
-const MATERIAU_FENETRE_OPTIONS = [['', '—'], ['vitree', 'Vitrée simple'], ['double_vitrage', 'Double vitrage'], ['coulissante', 'Coulissante'], ['jalousie', 'Jalousie']];
+const OUVRANT_OPTIONS = [['', '—'], ['1_vantail', '1 vantail (simple)'], ['2_vantaux', '2 vantaux (double)']];
+const MATERIAU_PORTE_OPTIONS = [
+  ['', '—'],
+  ['pleine_bois', 'Pleine bois'],
+  ['pleine_alu', 'Pleine alu'],
+  ['vitree', 'Vitrée'],
+  ['mixte', 'Mixte (vitrée + pleine)'],
+  ['isoplane', 'Isoplane (porte intérieure)'],
+  ['jalousie_alu', 'Jalousie alu'],
+  ['jalousie_bois', 'Jalousie bois']
+];
+const MATERIAU_FENETRE_OPTIONS = [
+  ['', '—'],
+  ['vitree_simple', 'Vitrée simple'],
+  ['double_vitrage', 'Double vitrage'],
+  ['coulissante', 'Coulissante'],
+  ['jalousie_alu', 'Jalousie alu'],
+  ['jalousie_bois', 'Jalousie bois']
+];
 const VOLET_OPTIONS = [['', '—'], ['aucun', 'Aucun'], ['plein_ext', 'Volet plein extérieur'], ['vitre_int', 'Volet vitré intérieur'], ['plein_ext_vitre_int', 'Plein ext. + vitré int.']];
+const SOL_OPTIONS = [
+  ['', '—'],
+  ['carrelage', 'Carrelage'],
+  ['beton', 'Béton brut / dalle'],
+  ['parquet', 'Parquet bois'],
+  ['parquet_stratifie', 'Parquet stratifié'],
+  ['lino', 'Linoléum / PVC'],
+  ['tomette', 'Tomette / pierre'],
+  ['moquette', 'Moquette']
+];
 
 function isPorte(item) {
   const e = String(item?.element || '').toLowerCase();
@@ -38,6 +64,14 @@ function isLineaire(item) {
 function isSurfacique(item) {
   const e = String(item?.element || '').toLowerCase();
   return e.includes('sol') || e.includes('mur') || e.includes('plafond') || e.includes('façade') || e.includes('peinture') || e.includes('faïence') || e.includes('faience') || e.includes('carrelage') || e.includes('toiture');
+}
+function isSol(item) {
+  const e = String(item?.element || '').toLowerCase();
+  return e.includes('sol');
+}
+function isJalousie(item) {
+  const e = String(item?.element || '').toLowerCase();
+  return e.includes('jalousie');
 }
 
 function estimatedCost(item) {
@@ -357,11 +391,19 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
                         <Select label="Volet" value={item.volet || ''} onChange={(value) => patchItem(item.id, { volet: value })} options={VOLET_OPTIONS} />
                       </>
                     )}
-                    {isFenetre(item) && (
+                    {isFenetre(item) && !isJalousie(item) && (
                       <>
                         <Select label="Type fenêtre" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={MATERIAU_FENETRE_OPTIONS} />
                         <Select label="Volet" value={item.volet || ''} onChange={(value) => patchItem(item.id, { volet: value })} options={VOLET_OPTIONS} />
                       </>
+                    )}
+                    {isJalousie(item) && (
+                      <>
+                        <Select label="Matériau jalousie" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={[['', '—'], ['jalousie_alu', 'Alu'], ['jalousie_bois', 'Bois']]} />
+                      </>
+                    )}
+                    {isSol(item) && (
+                      <Select label="Type de sol" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={SOL_OPTIONS} />
                     )}
                   </div>
                 </details>
