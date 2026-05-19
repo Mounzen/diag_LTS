@@ -26,6 +26,29 @@ function estimatedCost(item) {
   return Math.round(base * etatCoef * urgenceCoef);
 }
 
+function estimatedCostRange(item) {
+  // Si le serveur a fourni coutBas/coutMoyen/coutHaut directement, on les utilise
+  if (item.coutBas !== undefined || item.coutHaut !== undefined) {
+    return {
+      bas: Number(item.coutBas || item.coutMoyen || 0),
+      moyen: Number(item.coutMoyen || item.coutEstimatif || 0),
+      haut: Number(item.coutHaut || item.coutMoyen || 0)
+    };
+  }
+  // Sinon on calcule depuis prixBas/prixMoyen/prixHaut
+  const etatCoef = ETAT_COEFS[item.etat] ?? 0;
+  const urgenceCoef = { faible: 1, moyenne: 1.1, haute: 1.25, urgente: 1.45 }[item.urgence] || 1;
+  const factor = etatCoef * urgenceCoef;
+  const prixBas = Number(item.prixBas || item.prixMoyen || item.prix || 0);
+  const prixMoyen = Number(item.prixMoyen || item.prixBase || item.prix || 0);
+  const prixHaut = Number(item.prixHaut || item.prixMoyen || item.prix || 0);
+  return {
+    bas: Math.round(prixBas * factor),
+    moyen: Math.round(prixMoyen * factor),
+    haut: Math.round(prixHaut * factor)
+  };
+}
+
 function globalUrgence(items = []) {
   if (items.some((item) => item.etat === 'dangereux' || item.urgence === 'urgente')) return 'urgente';
   if (items.some((item) => item.etat === 'tres_degrade' || item.urgence === 'haute')) return 'haute';
@@ -76,6 +99,13 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
     const items = draft.items || [];
     const controlled = items.filter((item) => !['non_controle', 'non_concerne'].includes(item.etat)).length;
     const total = items.reduce((sum, item) => sum + estimatedCost(item), 0);
+    const totals = items.reduce((acc, item) => {
+      const r = estimatedCostRange(item);
+      acc.bas += r.bas;
+      acc.moyen += r.moyen;
+      acc.haut += r.haut;
+      return acc;
+    }, { bas: 0, moyen: 0, haut: 0 });
     const urgence = globalUrgence(items);
     const priorityItems = items
       .filter((item) => ['degrade', 'tres_degrade', 'dangereux'].includes(item.etat) || ['haute', 'urgente'].includes(item.urgence))
@@ -91,6 +121,7 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
       controlled,
       progress,
       total,
+      totals,
       urgence,
       priorityItems,
       photos,
@@ -103,7 +134,7 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
 
   useEffect(() => {
     if (!dirty) return undefined;
-    const timer = setTimeout(() => saveDraft('auto', draftRef.current), 1200);
+    const timer = setTimeout(() => saveDraft('auto', draftRef.current), 3500);
     return () => clearTimeout(timer);
   }, [dirty, draft]);
 
@@ -133,11 +164,24 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
         statut: sourceDraft.statut || 'brouillon_agent'
       };
       const saved = sourceDraft.id ? await api.updateDiagnostic(sourceDraft.id, payload) : await api.createDiagnostic(payload);
-      draftRef.current = saved;
-      setDraft(saved);
-      setDirty(false);
       setLastSavedAt(saved.dateModification || new Date().toISOString());
-      if (reason !== 'auto') {
+      if (reason === 'auto') {
+        // Auto-save : ne PAS écraser le draft local (préserve les frappes en cours)
+        // On synchronise juste l'id (pour les futures updates) si c'était une création
+        if (!sourceDraft.id && saved.id) {
+          draftRef.current = { ...draftRef.current, id: saved.id };
+          setDraft((current) => ({ ...current, id: saved.id }));
+        }
+        // setDirty(false) : seulement si l'utilisateur n'a rien tapé depuis
+        // On compare draftRef.current avec sourceDraft pour détecter
+        if (draftRef.current === sourceDraft || JSON.stringify(draftRef.current.items) === JSON.stringify(sourceDraft.items)) {
+          setDirty(false);
+        }
+      } else {
+        // Save manuel ou validation : on accepte la version serveur
+        draftRef.current = saved;
+        setDraft(saved);
+        setDirty(false);
         setMessage('Diagnostic sauvegardé');
         await onSaved(saved);
       }
@@ -250,7 +294,7 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
           <div className="reportGrid">
             <div><span>État général</span><strong>{report.state}</strong></div>
             <div><span>Urgence</span><strong className={badgeClass(report.urgence)}>{label(URGENCES, report.urgence)}</strong></div>
-            <div><span>Budget estimé</span><strong>{money(report.total)}</strong></div>
+            <div><span>Budget estimé</span><strong>{money(report.total)}</strong><small className="costRange">Fourchette : {money(report.totals.bas)} - {money(report.totals.haut)}</small></div>
             <div><span>Photos</span><strong>{report.photos}</strong></div>
           </div>
           <p>{report.preconisation}</p>

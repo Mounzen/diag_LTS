@@ -711,6 +711,18 @@ function diagnosticRowsHtml(diagnostic) {
   return (diagnostic?.items || []).map((item) => `<tr><td>${escapeHtml(item.pieceNom || item.zone)}</td><td>${escapeHtml(item.zone)}</td><td>${escapeHtml(item.element || item.item)}</td><td><span class="badge ${escapeHtml(item.etat)}">${escapeHtml(item.etat)}</span></td><td>${escapeHtml(item.urgence)}</td><td>${escapeHtml(item.travauxProposes || '')}</td><td>${escapeHtml(item.coutBas || 0)} €</td><td>${escapeHtml(item.coutMoyen || item.coutEstimatif || 0)} €</td><td>${escapeHtml(item.coutHaut || 0)} €</td></tr>`).join('');
 }
 
+function diagnosticTotalsRow(diagnostic) {
+  const items = diagnostic?.items || [];
+  const totals = items.reduce((acc, item) => {
+    acc.bas += Number(item.coutBas || 0);
+    acc.moyen += Number(item.coutMoyen || item.coutEstimatif || 0);
+    acc.haut += Number(item.coutHaut || 0);
+    return acc;
+  }, { bas: 0, moyen: 0, haut: 0 });
+  const fmt = (n) => Math.round(n).toLocaleString('fr-FR') + ' €';
+  return `<tfoot><tr class="totalsRow"><th colspan="6" style="text-align:right">TOTAL ESTIMATIF</th><th>${fmt(totals.bas)}</th><th>${fmt(totals.moyen)}</th><th>${fmt(totals.haut)}</th></tr></tfoot>`;
+}
+
 function workRows(logements = [], diagnostics = []) {
   const latestByLogement = new Map(diagnostics.map((diagnostic) => [diagnostic.logementId || diagnostic.logement_id, diagnostic]));
   return logements.map((logement) => {
@@ -725,7 +737,7 @@ function summaryText(scope, consolidation) {
 
 function reportHtml(title, body) {
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${title}</title><style>
-body{font-family:Arial,sans-serif;color:#172033;margin:32px}h1{margin:0 0 8px}h2{margin-top:28px}.muted{color:#667085}.officialHeader{display:flex;align-items:center;gap:18px;border-bottom:3px solid #1457a8;padding-bottom:14px;margin-bottom:22px}.reportLogo{width:210px;height:auto;flex:0 0 auto}.synthese{margin:22px 0 28px;padding:18px 22px;background:#f7f9fc;border-left:4px solid #1457a8;border-radius:6px}.synthese h2{margin-top:0;margin-bottom:12px;color:#1457a8;font-size:18px}.synthese p{text-align:justify;line-height:1.55;margin:0 0 10px;font-size:13px}.synthese p:last-child{margin-bottom:0}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.kpi{border:1px solid #ddd;border-radius:8px;padding:12px;background:#fafafa}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border-bottom:1px solid #ddd;text-align:left;padding:8px;font-size:12px;vertical-align:top}th{background:#f1f5f9}.badge{font-weight:700;border-radius:999px;padding:3px 7px;background:#eef2f6}.badge.dangereux,.badge.tres_degrade,.badge.urgente{background:#b42318;color:#fff}.badge.degrade,.badge.haute{background:#ffebe7;color:#b42318}.photoReportGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:12px}.photoFigure{break-inside:avoid;margin:0;border:1px solid #ddd;border-radius:8px;padding:8px}.photoFigure img{width:100%;height:180px;object-fit:cover;border-radius:6px}.photoFigure figcaption{font-size:12px;color:#667085;margin-top:6px}.signatureGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.signatureBox{border:1px solid #bbb;border-radius:8px;min-height:92px;padding:10px}.print{position:fixed;right:24px;top:24px}@media print{.print{display:none}body{margin:12mm}.photoReportGrid{grid-template-columns:repeat(2,1fr)}} </style></head><body><button class="print" onclick="window.print()">Imprimer / PDF</button>${body}</body></html>`;
+body{font-family:Arial,sans-serif;color:#172033;margin:32px}h1{margin:0 0 8px}h2{margin-top:28px}.muted{color:#667085}.officialHeader{display:flex;align-items:center;gap:18px;border-bottom:3px solid #1457a8;padding-bottom:14px;margin-bottom:22px}.reportLogo{width:210px;height:auto;flex:0 0 auto}.synthese{margin:22px 0 28px;padding:18px 22px;background:#f7f9fc;border-left:4px solid #1457a8;border-radius:6px}.synthese h2{margin-top:0;margin-bottom:12px;color:#1457a8;font-size:18px}.synthese p{text-align:justify;line-height:1.55;margin:0 0 10px;font-size:13px}.synthese p:last-child{margin-bottom:0}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.kpi{border:1px solid #ddd;border-radius:8px;padding:12px;background:#fafafa}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border-bottom:1px solid #ddd;text-align:left;padding:8px;font-size:12px;vertical-align:top}th{background:#f1f5f9}.badge{font-weight:700;border-radius:999px;padding:3px 7px;background:#eef2f6}.badge.dangereux,.badge.tres_degrade,.badge.urgente{background:#b42318;color:#fff}.badge.degrade,.badge.haute{background:#ffebe7;color:#b42318}.totalsRow th{background:#1457a8;color:#fff;font-weight:700;font-size:13px;border-top:2px solid #0e3d72}.photoReportGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:12px}.photoFigure{break-inside:avoid;margin:0;border:1px solid #ddd;border-radius:8px;padding:8px}.photoFigure img{width:100%;height:180px;object-fit:cover;border-radius:6px}.photoFigure figcaption{font-size:12px;color:#667085;margin-top:6px}.signatureGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.signatureBox{border:1px solid #bbb;border-radius:8px;min-height:92px;padding:10px}.print{position:fixed;right:24px;top:24px}@media print{.print{display:none}body{margin:12mm}.photoReportGrid{grid-template-columns:repeat(2,1fr)}} </style></head><body><button class="print" onclick="window.print()">Imprimer / PDF</button>${body}</body></html>`;
 }
 
 // Multer en mémoire : on traite le buffer puis on l'envoie sur Supabase (ou disque en fallback)
@@ -1446,7 +1458,7 @@ app.get('/api/exports/logement/:id.pdf', (req, res, next) => {
     <div class="grid"><div class="kpi">Secteur<br><b>${escapeHtml(logement.secteur)}</b></div><div class="kpi">LTS<br><b>${escapeHtml(logement.nom_lts)}</b></div><div class="kpi">Urgence<br><b>${escapeHtml(latest?.urgenceGlobale || 'Non diagnostiqué')}</b></div><div class="kpi">Budget estimatif<br><b>${escapeHtml(latest?.coutTotal || 0)} €</b></div></div>
     <h2>Identité du logement</h2><table><tbody><tr><th>Adresse</th><td>${escapeHtml(logement.adresse)}</td><th>Type</th><td>${escapeHtml(logement.type_logement || '')}</td></tr><tr><th>Statut patrimonial</th><td>${escapeHtml(logement.statutPatrimonial || '')}</td><th>Parc actif</th><td>${logement.dansParcActif ? 'Oui' : 'Non'}</td></tr><tr><th>Date diagnostic</th><td>${latest ? escapeHtml(new Date(latest.dateModification || latest.date).toLocaleString('fr-FR')) : 'Non diagnostiqué'}</td><th>Agent</th><td>${escapeHtml(latest?.agent?.prenom || latest?.agent?.nom || 'Non renseigné')}</td></tr><tr><th>État général</th><td>${escapeHtml(logement.etat_general || '')}</td><th>Priorité</th><td>${escapeHtml(consolidation?.urgence || 'Non diagnostiqué')}</td></tr></tbody></table>
     <h2>Configuration réelle du logement</h2><p>Type théorique : <b>${escapeHtml(configData?.configuration?.typeLogementTheorique || '')}</b> · Configuration constatée : <b>${escapeHtml(configData?.configuration?.configurationReelleConstatee || 'Non renseignée')}</b></p><table><thead><tr><th>Pièce</th><th>Type</th><th>Surface</th><th>Éléments générés</th></tr></thead><tbody>${piecesRows}</tbody></table>
-    <h2>Diagnostic détaillé par pièce / zone</h2>${latest ? `<table><thead><tr><th>Pièce</th><th>Zone</th><th>Élément</th><th>État</th><th>Urgence</th><th>Travaux / préconisation technique</th><th>Prix bas</th><th>Prix moyen</th><th>Prix haut</th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="muted">Logement non diagnostiqué.</p>'}
+    <h2>Diagnostic détaillé par pièce / zone</h2>${latest ? `<table><thead><tr><th>Pièce</th><th>Zone</th><th>Élément</th><th>État</th><th>Urgence</th><th>Travaux / préconisation technique</th><th>Prix bas</th><th>Prix moyen</th><th>Prix haut</th></tr></thead><tbody>${rows}</tbody>${diagnosticTotalsRow(latest)}</table>` : '<p class="muted">Logement non diagnostiqué.</p>'}
     <h2>Préconisations automatiques</h2>${listHtml(latest?.preconisations || preconisationsForDiagnostic(latest || {}))}
     ${photosSection}
     <h2>Validation responsable</h2><p>Statut : <b>${escapeHtml(latest?.statut || 'Non diagnostiqué')}</b> · Date validation : <b>${latest?.dateValidation ? escapeHtml(new Date(latest.dateValidation).toLocaleString('fr-FR')) : 'Non validé'}</b></p>
@@ -2361,6 +2373,145 @@ app.get('/api/debug/geocode-test', async (req, res) => {
       stack: err.stack
     });
   }
+});
+
+
+// ============================================================================
+// Consultation entreprise : PDF/Excel sans prix (postes + quantités uniquement)
+// ============================================================================
+
+function consultationItemsRows(diagnostic) {
+  // On ne garde que les éléments qui nécessitent une intervention
+  const items = (diagnostic?.items || []).filter((item) => ['degrade', 'tres_degrade', 'dangereux', 'moyen'].includes(item.etat));
+  if (items.length === 0) return { rows: '', items: [] };
+  const rows = items.map((item, i) => `<tr>
+    <td>${i + 1}</td>
+    <td><b>${escapeHtml(item.zone)}</b><br><small>${escapeHtml(item.pieceNom || '')}</small></td>
+    <td>${escapeHtml(item.element || item.item)}</td>
+    <td><span class="badge ${escapeHtml(item.etat)}">${escapeHtml(item.etat)}</span></td>
+    <td>${escapeHtml(item.urgence || '')}</td>
+    <td>${escapeHtml(item.unite || 'forfait')}</td>
+    <td>${escapeHtml(item.quantite || 1)}</td>
+    <td>${escapeHtml(item.travauxProposes || item.poste || 'À chiffrer par l\'entreprise')}</td>
+    <td class="prixVide" style="background:#fafafa;border:1px dashed #cbd5e1">&nbsp;</td>
+    <td class="prixVide" style="background:#fafafa;border:1px dashed #cbd5e1">&nbsp;</td>
+  </tr>`).join('');
+  return { rows, items };
+}
+
+app.get('/api/exports/consultation/logement/:id.pdf', (req, res) => {
+  const db = loadDb();
+  const logement = db.logements.find((l) => l.id === req.params.id);
+  if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+  const latest = latestDiagnosticForLogement(db, logement.id);
+  if (!latest) {
+    return res.type('html').send(reportHtml('Consultation - pas de diagnostic', `<p>Aucun diagnostic disponible pour ${escapeHtml(logement.code_acces)}. Réalisez un diagnostic avant la consultation.</p>`));
+  }
+  const { rows, items } = consultationItemsRows(latest);
+  if (items.length === 0) {
+    return res.type('html').send(reportHtml(`Consultation ${logement.code_acces}`, `${officialHeader('Consultation entreprise - ' + logement.code_acces, 'DIAG-LTS')}<p>Aucun élément à chiffrer (logement en bon état).</p>`));
+  }
+  const body = `${officialHeader(`Consultation entreprise - Logement ${logement.code_acces}`, 'DIAG-LTS')}
+    <div class="grid">
+      <div class="kpi">Adresse<br><b>${escapeHtml(logement.adresse)}</b></div>
+      <div class="kpi">Secteur<br><b>${escapeHtml(logement.secteur)}</b></div>
+      <div class="kpi">LTS<br><b>${escapeHtml(logement.nom_lts)}</b></div>
+      <div class="kpi">Type<br><b>${escapeHtml(logement.type_logement || '')}</b></div>
+    </div>
+    <section class="synthese">
+      <h2>Objet de la consultation</h2>
+      <p>Diagnostic terrain réalisé le ${escapeHtml(new Date(latest.dateModification || latest.date).toLocaleDateString('fr-FR'))}. Liste détaillée des travaux à chiffrer ci-dessous, par poste et par pièce. Les colonnes <b>Prix unitaire HT</b> et <b>Prix total HT</b> sont à compléter par l'entreprise lors du chiffrage.</p>
+      <p><b>${items.length}</b> poste(s) de travaux à chiffrer.</p>
+    </section>
+    <h2>Détail des travaux à chiffrer</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Zone / Pièce</th>
+          <th>Élément</th>
+          <th>État constaté</th>
+          <th>Urgence</th>
+          <th>Unité</th>
+          <th>Qté</th>
+          <th>Désignation / Préconisation</th>
+          <th>Prix unitaire HT</th>
+          <th>Prix total HT</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr class="totalsRow">
+          <th colspan="9" style="text-align:right">TOTAL HT</th>
+          <th class="prixVide" style="background:#eef2f6">&nbsp;</th>
+        </tr>
+        <tr class="totalsRow">
+          <th colspan="9" style="text-align:right">TVA</th>
+          <th class="prixVide" style="background:#eef2f6">&nbsp;</th>
+        </tr>
+        <tr class="totalsRow">
+          <th colspan="9" style="text-align:right">TOTAL TTC</th>
+          <th class="prixVide" style="background:#eef2f6">&nbsp;</th>
+        </tr>
+      </tfoot>
+    </table>
+    <h2>Conditions de chiffrage</h2>
+    <ul>
+      <li>Visite préalable obligatoire avant remise de prix</li>
+      <li>Devis détaillé poste par poste exigé</li>
+      <li>Délai de validité du devis : minimum 30 jours</li>
+      <li>Garantie décennale et RC pro à fournir</li>
+      <li>Date limite de remise des offres : à préciser</li>
+    </ul>
+    <h2>Signature</h2>
+    <div class="signatureGrid">
+      <div class="signatureBox">Maître d'ouvrage<br><small>Date - Nom - Signature</small></div>
+      <div class="signatureBox">Entreprise<br><small>Date - Nom - Cachet - Signature</small></div>
+    </div>`;
+  res.type('html').send(reportHtml(`Consultation ${logement.code_acces}`, body));
+});
+
+app.get('/api/exports/consultation/logement/:id.xlsx', (req, res, next) => {
+  try {
+    const db = loadDb();
+    const logement = db.logements.find((l) => l.id === req.params.id);
+    if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+    const latest = latestDiagnosticForLogement(db, logement.id);
+    if (!latest) return res.status(422).json({ message: 'Aucun diagnostic pour ce logement' });
+    const items = (latest.items || []).filter((item) => ['degrade', 'tres_degrade', 'dangereux', 'moyen'].includes(item.etat));
+    const wb = XLSX.utils.book_new();
+    const data = [
+      ['CONSULTATION ENTREPRISE - ' + logement.code_acces, '', '', '', '', '', '', '', '', ''],
+      ['Adresse', logement.adresse, '', 'Secteur', logement.secteur, '', 'Type', logement.type_logement || '', '', ''],
+      ['Date diagnostic', new Date(latest.dateModification || latest.date).toLocaleDateString('fr-FR'), '', '', '', '', '', '', '', ''],
+      [''],
+      ['#', 'Zone', 'Pièce', 'Élément', 'État', 'Urgence', 'Unité', 'Qté', 'Désignation / Préconisation', 'Prix unitaire HT', 'Prix total HT'],
+      ...items.map((item, i) => [
+        i + 1,
+        item.zone || '',
+        item.pieceNom || '',
+        item.element || item.item || '',
+        item.etat || '',
+        item.urgence || '',
+        item.unite || 'forfait',
+        item.quantite || 1,
+        item.travauxProposes || item.poste || 'À chiffrer',
+        '', // Prix unitaire vide
+        ''  // Prix total vide
+      ]),
+      [''],
+      ['', '', '', '', '', '', '', '', 'TOTAL HT', '', ''],
+      ['', '', '', '', '', '', '', '', 'TVA', '', ''],
+      ['', '', '', '', '', '', '', '', 'TOTAL TTC', '', '']
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [{wch:4},{wch:18},{wch:14},{wch:22},{wch:14},{wch:10},{wch:8},{wch:5},{wch:40},{wch:14},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Consultation');
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="consultation-${logement.code_acces}.xlsx"`);
+    res.send(buffer);
+  } catch (err) { next(err); }
 });
 
 app.use((error, req, res, next) => {

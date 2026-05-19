@@ -103,6 +103,8 @@ export default function LogementDetail({ detail, meta, user, onUpdated, onStart,
         <button onClick={onStart}><Play size={18} /> Démarrer diagnostic</button>
         <button className="secondary" onClick={() => setShowDevisForm(true)}><Plus size={18} /> Créer un devis</button>
         <a className="button secondary" href={exportUrl(`/api/exports/logement/${logement.id}.pdf`)} target="_blank" rel="noreferrer"><FileText size={18} /> Export PDF logement</a>
+        <a className="button secondary" href={exportUrl(`/api/exports/consultation/logement/${logement.id}.pdf`)} target="_blank" rel="noreferrer" title="PDF de consultation entreprise sans prix"><FileText size={18} /> Consultation entreprise PDF</a>
+        <a className="button secondary" href={exportUrl(`/api/exports/consultation/logement/${logement.id}.xlsx`)} title="Excel de consultation entreprise sans prix"><FileText size={18} /> Consultation entreprise Excel</a>
         <a className="button secondary" href={exportUrl(`/api/exports/lts/${logement.code_lts}.pdf`)} target="_blank" rel="noreferrer"><FileText size={18} /> Export PDF LTS</a>
         <a className="button secondary" href={exportUrl(`/api/exports/secteur/${logement.secteur}.pdf`)} target="_blank" rel="noreferrer"><FileText size={18} /> Export PDF secteur</a>
         <a className="button secondary" href={exportUrl(`/api/exports/logement/${logement.id}-travaux.xlsx`)}><FileText size={18} /> Export Excel travaux logement</a>
