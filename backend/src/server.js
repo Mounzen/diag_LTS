@@ -2073,8 +2073,39 @@ const GEO_CONTEXT = process.env.GEO_CONTEXT || 'Saint-Denis, La Réunion, France
 const NOMINATIM_USER_AGENT = process.env.NOMINATIM_USER_AGENT || 'DIAG-LTS/1.0 (contact@diag-lts.fr)';
 let geocodeQueueRunning = false;
 
-// Centre de Saint-Denis Réunion (974) — fallback si Nominatim n'a pas l'adresse exacte
+// Centre de Saint-Denis Réunion (974) — fallback ultime
 const SAINT_DENIS_CENTER = { lat: -20.879, lng: 55.448 };
+
+// Normalisation des noms de quartiers (corrige les fautes de frappe et améliore la précision Nominatim)
+const QUARTIER_NORMALIZATION = {
+  'sainte cloitlde': 'Sainte-Clotilde',
+  'sainte clotilde': 'Sainte-Clotilde',
+  'bois de nefles': 'Bois-de-Nèfles',
+  'bois de nèfles': 'Bois-de-Nèfles',
+  'montagne 8eme': 'La Montagne',
+  'montagne 15eme': 'La Montagne',
+  'montagne 8ème': 'La Montagne',
+  'montagne 15ème': 'La Montagne',
+  'la montagne': 'La Montagne',
+  'le brulé': 'Le Brûlé',
+  'le brûlé': 'Le Brûlé',
+  'saint françois': 'Saint-François',
+  'saint francois': 'Saint-François',
+  'moufia': 'Moufia',
+  'bellepierre': 'Bellepierre',
+  'montgaillard': 'Montgaillard',
+  'marcadet': 'Marcadet',
+  'chaudron': 'Le Chaudron',
+  'le chaudron': 'Le Chaudron',
+  'prima': 'Domenjod',
+  'la bretagne': 'La Bretagne'
+};
+
+function normalizeQuartier(q) {
+  if (!q) return null;
+  const key = String(q).trim().toLowerCase();
+  return QUARTIER_NORMALIZATION[key] || q;
+}
 
 async function tryNominatim(query) {
   await new Promise((resolve) => setTimeout(resolve, 1100));
@@ -2092,30 +2123,54 @@ async function tryNominatim(query) {
   }
 }
 
-async function geocodeAddress(address) {
-  // Stratégie 1 : adresse + 97400 + Saint-Denis Réunion
-  let result = await tryNominatim(`${address}, 97400 Saint-Denis, La Réunion, France`);
+// Cache des quartiers en mémoire pendant un batch (1 appel Nominatim par quartier)
+async function geocodeQuartier(quartier, cache) {
+  const normalized = normalizeQuartier(quartier);
+  if (!normalized) return null;
+  if (cache.has(normalized)) return cache.get(normalized);
+
+  // Stratégie 1 : quartier + Saint-Denis 974
+  let result = await tryNominatim(`${normalized}, 97400 Saint-Denis, La Réunion, France`);
+  // Stratégie 2 : quartier + Réunion
+  if (!result) result = await tryNominatim(`${normalized}, Saint-Denis, La Réunion`);
+
+  cache.set(normalized, result);
+  return result;
+}
+
+// Géocode un logement : essai par adresse précise, sinon par quartier, sinon fallback centre.
+// Le cache mutualise les appels Nominatim entre logements du même quartier.
+async function geocodeLogement(logement, quartierCache = new Map()) {
+  // Stratégie 1 : adresse complète
+  let result = await tryNominatim(`${logement.adresse}, 97400 Saint-Denis, La Réunion, France`);
   if (result) return { ...result, source: 'nominatim_precise' };
 
-  // Stratégie 2 : juste l'adresse + Saint-Denis Réunion
-  result = await tryNominatim(`${address}, Saint-Denis, Réunion`);
-  if (result) return { ...result, source: 'nominatim_partial' };
-
-  // Stratégie 3 : extraire le nom de rue (sans n° de bloc) + Saint-Denis
-  const streetOnly = String(address).replace(/^\d+\s*(bis|ter|quater)?\s*(Bloc\s*\d+)?\s*/i, '').trim();
-  if (streetOnly && streetOnly !== address) {
-    result = await tryNominatim(`${streetOnly}, 97400 Saint-Denis, Réunion`);
-    if (result) return { ...result, source: 'nominatim_street_only' };
+  // Stratégie 2 : quartier (avec cache pour éviter doublons)
+  if (logement.quartier) {
+    const qResult = await geocodeQuartier(logement.quartier, quartierCache);
+    if (qResult) {
+      // Jitter ~200m pour distinguer les logements du même quartier sur la carte
+      const jitter = () => (Math.random() - 0.5) * 0.003;
+      return {
+        latitude: qResult.latitude + jitter(),
+        longitude: qResult.longitude + jitter(),
+        source: 'quartier'
+      };
+    }
   }
 
-  // Fallback : centre de Saint-Denis avec un léger jitter aléatoire (~300m max)
-  // Permet d'afficher tous les logements groupés sur la carte, l'agent peut repositionner ensuite
+  // Fallback : centre de Saint-Denis + jitter
   const jitter = () => (Math.random() - 0.5) * 0.005;
   return {
     latitude: SAINT_DENIS_CENTER.lat + jitter(),
     longitude: SAINT_DENIS_CENTER.lng + jitter(),
     source: 'fallback_center'
   };
+}
+
+// Wrapper pour conserver l'API existante (logements géocodés individuellement)
+async function geocodeAddress(address) {
+  return tryNominatim(`${address}, ${GEO_CONTEXT}`).then((r) => r ? { ...r, source: 'nominatim_precise' } : null);
 }
 
 // Liste des logements avec coords + dernière urgence (pour la carte)
@@ -2200,14 +2255,14 @@ app.post('/api/admin/geocode-batch', async (req, res) => {
       const db = loadDb();
       const todo = db.logements.filter((l) => !l.latitude || !l.longitude).slice(0, limit);
       geocodeProgress.total = todo.length;
-      console.log(`[Geocode] Batch démarré: ${todo.length} logements à géocoder`);
+      console.log(`[Geocode] Batch démarré: ${todo.length} logements à géocoder (cache par quartier)`);
 
-      // Map pour retrouver le logement dans db par id (le même objet est modifié in-place)
       const logementById = new Map(db.logements.map((l) => [l.id, l]));
+      const quartierCache = new Map(); // partagé pour tout le batch → 1 appel Nominatim par quartier max
 
       for (const logement of todo) {
         try {
-          const result = await geocodeAddress(logement.adresse);
+          const result = await geocodeLogement(logement, quartierCache);
           geocodeProgress.processed += 1;
           if (result) {
             const target = logementById.get(logement.id);
@@ -2218,18 +2273,15 @@ app.post('/api/admin/geocode-batch', async (req, res) => {
               target.geocodeAt = new Date().toISOString();
               geocodeProgress.success += 1;
             }
-          } else {
-            geocodeProgress.errors.push({ id: logement.id, adresse: logement.adresse, reason: 'no_match' });
           }
         } catch (errIter) {
           geocodeProgress.errors.push({ id: logement.id, adresse: logement.adresse, reason: errIter.message });
           console.error(`[Geocode] Erreur pour ${logement.id}: ${errIter.message}`);
         }
 
-        // Sauvegarde sur disque tous les 10 logements (rapide, pas de sync Supabase ici)
-        if (geocodeProgress.processed % 10 === 0) {
+        if (geocodeProgress.processed % 25 === 0) {
           fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf-8');
-          console.log(`[Geocode] Progression: ${geocodeProgress.processed}/${todo.length} (${geocodeProgress.success} succès)`);
+          console.log(`[Geocode] Progression: ${geocodeProgress.processed}/${todo.length} (${geocodeProgress.success} géocodés, ${quartierCache.size} quartiers cachés)`);
         }
       }
 
