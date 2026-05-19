@@ -2073,23 +2073,49 @@ const GEO_CONTEXT = process.env.GEO_CONTEXT || 'Saint-Denis, La Réunion, France
 const NOMINATIM_USER_AGENT = process.env.NOMINATIM_USER_AGENT || 'DIAG-LTS/1.0 (contact@diag-lts.fr)';
 let geocodeQueueRunning = false;
 
-async function geocodeAddress(address) {
-  // Nominatim impose 1 req/sec max, on attend 1.1s avant chaque call
+// Centre de Saint-Denis Réunion (974) — fallback si Nominatim n'a pas l'adresse exacte
+const SAINT_DENIS_CENTER = { lat: -20.879, lng: 55.448 };
+
+async function tryNominatim(query) {
   await new Promise((resolve) => setTimeout(resolve, 1100));
-  const query = encodeURIComponent(`${address}, ${GEO_CONTEXT}`);
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`;
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
   try {
     const res = await fetch(url, { headers: { 'User-Agent': NOMINATIM_USER_AGENT, 'Accept': 'application/json' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) return null;
     const arr = await res.json();
     if (Array.isArray(arr) && arr.length > 0) {
-      return { latitude: Number(arr[0].lat), longitude: Number(arr[0].lon), source: 'nominatim' };
+      return { latitude: Number(arr[0].lat), longitude: Number(arr[0].lon) };
     }
     return null;
-  } catch (err) {
-    console.error(`[Geocode] échec pour "${address}": ${err.message}`);
+  } catch {
     return null;
   }
+}
+
+async function geocodeAddress(address) {
+  // Stratégie 1 : adresse + 97400 + Saint-Denis Réunion
+  let result = await tryNominatim(`${address}, 97400 Saint-Denis, La Réunion, France`);
+  if (result) return { ...result, source: 'nominatim_precise' };
+
+  // Stratégie 2 : juste l'adresse + Saint-Denis Réunion
+  result = await tryNominatim(`${address}, Saint-Denis, Réunion`);
+  if (result) return { ...result, source: 'nominatim_partial' };
+
+  // Stratégie 3 : extraire le nom de rue (sans n° de bloc) + Saint-Denis
+  const streetOnly = String(address).replace(/^\d+\s*(bis|ter|quater)?\s*(Bloc\s*\d+)?\s*/i, '').trim();
+  if (streetOnly && streetOnly !== address) {
+    result = await tryNominatim(`${streetOnly}, 97400 Saint-Denis, Réunion`);
+    if (result) return { ...result, source: 'nominatim_street_only' };
+  }
+
+  // Fallback : centre de Saint-Denis avec un léger jitter aléatoire (~300m max)
+  // Permet d'afficher tous les logements groupés sur la carte, l'agent peut repositionner ensuite
+  const jitter = () => (Math.random() - 0.5) * 0.005;
+  return {
+    latitude: SAINT_DENIS_CENTER.lat + jitter(),
+    longitude: SAINT_DENIS_CENTER.lng + jitter(),
+    source: 'fallback_center'
+  };
 }
 
 // Liste des logements avec coords + dernière urgence (pour la carte)
