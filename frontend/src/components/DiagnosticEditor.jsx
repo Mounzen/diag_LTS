@@ -73,6 +73,10 @@ function isJalousie(item) {
   const e = String(item?.element || '').toLowerCase();
   return e.includes('jalousie');
 }
+function isElectriqueCount(item) {
+  const e = String(item?.element || '').toLowerCase();
+  return e.includes('prise') || e.includes('interrupteur') || e.includes('luminaire') || e.includes('point lumineux');
+}
 
 function estimatedCost(item) {
   const serverCost = Number(item.coutEstimatif || item.coutMoyen || 0);
@@ -374,14 +378,14 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
 
                 {/* Détails pour devis : dimensions + types pour portes/fenêtres/sols */}
                 {(() => {
-                  const needsDims = isPorte(item) || isFenetre(item) || isJalousie(item) || isSurfacique(item) || isLineaire(item);
+                  const needsDims = isPorte(item) || isFenetre(item) || isJalousie(item) || isSurfacique(item) || isLineaire(item) || isElectriqueCount(item);
                   return (
                     <details className="dimensionsBlock" {...(needsDims ? { open: true } : {})}>
                       <summary>📐 Détails dimensions / type {needsDims ? '(requis pour devis)' : '(optionnel)'}</summary>
                       <div className="dimensionsGrid">
                         <Select label="Unité" value={item.unite || (isSol(item) || isSurfacique(item) ? 'm2' : isLineaire(item) ? 'ml' : 'u')} onChange={(value) => patchItem(item.id, { unite: value })} options={UNITE_OPTIONS} />
-                        <label>Quantité<input type="number" min="0" step="0.01" value={item.quantite ?? 1} onChange={(e) => patchItem(item.id, { quantite: Number(e.target.value) || 0 })} /></label>
-                        {needsDims && (
+                        <label>{isElectriqueCount(item) ? 'Nombre' : 'Quantité'}<input type="number" min="0" step={isElectriqueCount(item) ? '1' : '0.01'} placeholder={isElectriqueCount(item) ? 'ex: 4' : ''} value={item.quantite ?? 1} onChange={(e) => patchItem(item.id, { quantite: Number(e.target.value) || 0 })} /></label>
+                        {needsDims && !isElectriqueCount(item) && (
                           <>
                             <label>Hauteur (cm)<input type="number" min="0" placeholder="ex: 210" value={item.hauteur || ''} onChange={(e) => {
                               const h = Number(e.target.value) || 0;

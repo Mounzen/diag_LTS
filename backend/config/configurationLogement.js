@@ -322,6 +322,25 @@ export function buildDiagnosticItemsFromConfiguration(logement, configuration, p
     }
   }
 
+  // Détection auto du matériau par défaut selon l'élément
+  function defaultMateriauFor(element) {
+    const e = String(element).toLowerCase();
+    // Portes intérieures = isoplane par défaut
+    if (e.includes('porte') && !e.includes('entrée') && !e.includes('garage') && !e.includes('portillon')) {
+      return 'isoplane';
+    }
+    return '';
+  }
+
+  function defaultUniteFor(element) {
+    const e = String(element).toLowerCase();
+    if (e.includes('prise') || e.includes('interrupteur') || e.includes('luminaire')) return 'u';
+    if (e.includes('sol') || e.includes('mur') || e.includes('plafond') || e.includes('peinture') || e.includes('faïence') || e.includes('carrelage')) return 'm2';
+    if (e.includes('clôture') || e.includes('cloture') || e.includes('plinthe')) return 'ml';
+    if (e.includes('porte') || e.includes('fenêtre') || e.includes('fenetre') || e.includes('jalousie') || e.includes('lavabo') || e.includes('douche') || e.includes('évier')) return 'u';
+    return 'forfait';
+  }
+
   for (const piece of pieces.filter((p) => p.logementId === logement.id && !p.archivedAt)) {
     // Fusion intelligente : éléments existants + nouveaux du template (sans doublons)
     const templateElements = ELEMENTS_PAR_TYPE_PIECE[piece.type] || [];
@@ -329,8 +348,12 @@ export function buildDiagnosticItemsFromConfiguration(logement, configuration, p
     const allElements = [...new Set([...existingElements, ...templateElements])];
     for (const element of allElements) {
       const id = itemId(['piece', piece.id, element]);
+      const defaultMateriau = defaultMateriauFor(element);
+      const defaultUnite = defaultUniteFor(element);
       generated.push({
         id,
+        materiau: defaultMateriau,
+        unite: defaultUnite,
         zone: `Pièce - ${piece.nom}`,
         element,
         typeSource: 'piece_logement',
