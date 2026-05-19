@@ -353,6 +353,12 @@ function hydrateDiagnostic(body, existing = {}, db, referentiel) {
     const zone = raw.zone || '';
     const element = raw.element || raw.item || '';
     const estimated = estimateItem({ ...raw, element }, logement, referentiel);
+    // Nouveaux champs : dimensions et types pour devis détaillés
+    const unite = raw.unite || estimated.unite || 'forfait';
+    const hauteur = Number(raw.hauteur || 0);
+    const largeur = Number(raw.largeur || 0);
+    const surfaceAuto = (hauteur > 0 && largeur > 0) ? Math.round(hauteur * largeur * 100) / 1000000 : 0; // cm² → m²
+    const quantite = Number(raw.quantite) || (unite === 'm2' && surfaceAuto > 0 ? surfaceAuto : 1);
     return {
       id: raw.id || `${zone}-${element}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       zone,
@@ -369,7 +375,17 @@ function hydrateDiagnostic(body, existing = {}, db, referentiel) {
       posteTravaux: estimated.poste,
       categorieTravaux: estimated.categorie,
       prioriteTravaux: estimated.priorite,
-      unite: estimated.unite,
+      // Dimensions et quantité pour devis
+      unite,
+      quantite,
+      hauteur,
+      largeur,
+      surface: surfaceAuto || Number(raw.surface || 0),
+      // Spécifique portes/fenêtres
+      typeOuvrant: raw.typeOuvrant || '', // simple | double
+      materiau: raw.materiau || '',       // vitree | pleine | mixte | jalousie | coulissante
+      volet: raw.volet || '',             // aucun | plein_ext | vitre_int | plein_ext_vitre_int
+      // Prix et coûts (peuvent être recalculés selon quantité plus tard)
       prixBas: estimated.prixBas,
       prixMoyen: estimated.prixMoyen,
       prixHaut: estimated.prixHaut,
@@ -2384,18 +2400,30 @@ function consultationItemsRows(diagnostic) {
   // On ne garde que les éléments qui nécessitent une intervention
   const items = (diagnostic?.items || []).filter((item) => ['degrade', 'tres_degrade', 'dangereux', 'moyen'].includes(item.etat));
   if (items.length === 0) return { rows: '', items: [] };
-  const rows = items.map((item, i) => `<tr>
-    <td>${i + 1}</td>
-    <td><b>${escapeHtml(item.zone)}</b><br><small>${escapeHtml(item.pieceNom || '')}</small></td>
-    <td>${escapeHtml(item.element || item.item)}</td>
-    <td><span class="badge ${escapeHtml(item.etat)}">${escapeHtml(item.etat)}</span></td>
-    <td>${escapeHtml(item.urgence || '')}</td>
-    <td>${escapeHtml(item.unite || 'forfait')}</td>
-    <td>${escapeHtml(item.quantite || 1)}</td>
-    <td>${escapeHtml(item.travauxProposes || item.poste || 'À chiffrer par l\'entreprise')}</td>
-    <td class="prixVide" style="background:#fafafa;border:1px dashed #cbd5e1">&nbsp;</td>
-    <td class="prixVide" style="background:#fafafa;border:1px dashed #cbd5e1">&nbsp;</td>
-  </tr>`).join('');
+  const rows = items.map((item, i) => {
+    // Construire description enrichie avec dimensions et type
+    const details = [];
+    if (item.hauteur && item.largeur) details.push(`${item.hauteur}×${item.largeur} cm`);
+    else if (item.hauteur) details.push(`H ${item.hauteur} cm`);
+    else if (item.largeur) details.push(`L ${item.largeur} cm`);
+    if (item.typeOuvrant) details.push(item.typeOuvrant + ' volet');
+    if (item.materiau) details.push(item.materiau);
+    if (item.volet && item.volet !== 'aucun') details.push('volet ' + item.volet.replace(/_/g, ' '));
+    const detailsHtml = details.length ? `<br><small style="color:#475569">${escapeHtml(details.join(' · '))}</small>` : '';
+    const designation = item.travauxProposes || item.poste || 'À chiffrer par l\'entreprise';
+    return `<tr>
+      <td>${i + 1}</td>
+      <td><b>${escapeHtml(item.zone)}</b><br><small>${escapeHtml(item.pieceNom || '')}</small></td>
+      <td>${escapeHtml(item.element || item.item)}${detailsHtml}</td>
+      <td><span class="badge ${escapeHtml(item.etat)}">${escapeHtml(item.etat)}</span></td>
+      <td>${escapeHtml(item.urgence || '')}</td>
+      <td>${escapeHtml(item.unite || 'forfait')}</td>
+      <td>${escapeHtml(item.quantite || 1)}</td>
+      <td>${escapeHtml(designation)}</td>
+      <td class="prixVide" style="background:#fafafa;border:1px dashed #cbd5e1">&nbsp;</td>
+      <td class="prixVide" style="background:#fafafa;border:1px dashed #cbd5e1">&nbsp;</td>
+    </tr>`;
+  }).join('');
   return { rows, items };
 }
 

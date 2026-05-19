@@ -17,6 +17,29 @@ const ETAT_COEFS = {
 
 const URGENCE_RANK = { faible: 1, moyenne: 2, haute: 3, urgente: 4 };
 
+const UNITE_OPTIONS = [['u', 'U (unité)'], ['ml', 'ML (mètre linéaire)'], ['m2', 'm² (surface)'], ['forfait', 'Forfait']];
+const OUVRANT_OPTIONS = [['', '—'], ['simple', 'Simple volet'], ['double', 'Double volet']];
+const MATERIAU_PORTE_OPTIONS = [['', '—'], ['vitree', 'Vitrée'], ['pleine', 'Pleine'], ['mixte', 'Mixte (vitrée + pleine)'], ['isoplane', 'Isoplane']];
+const MATERIAU_FENETRE_OPTIONS = [['', '—'], ['vitree', 'Vitrée simple'], ['double_vitrage', 'Double vitrage'], ['coulissante', 'Coulissante'], ['jalousie', 'Jalousie']];
+const VOLET_OPTIONS = [['', '—'], ['aucun', 'Aucun'], ['plein_ext', 'Volet plein extérieur'], ['vitre_int', 'Volet vitré intérieur'], ['plein_ext_vitre_int', 'Plein ext. + vitré int.']];
+
+function isPorte(item) {
+  const e = String(item?.element || '').toLowerCase();
+  return e.includes('porte') || e.includes('portillon');
+}
+function isFenetre(item) {
+  const e = String(item?.element || '').toLowerCase();
+  return e.includes('fenêtre') || e.includes('fenetre') || e.includes('vitrage') || e.includes('baie');
+}
+function isLineaire(item) {
+  const e = String(item?.element || '').toLowerCase();
+  return e.includes('clôture') || e.includes('cloture') || e.includes('plinthe') || e.includes('cheminement');
+}
+function isSurfacique(item) {
+  const e = String(item?.element || '').toLowerCase();
+  return e.includes('sol') || e.includes('mur') || e.includes('plafond') || e.includes('façade') || e.includes('peinture') || e.includes('faïence') || e.includes('faience') || e.includes('carrelage') || e.includes('toiture');
+}
+
 function estimatedCost(item) {
   const serverCost = Number(item.coutEstimatif || item.coutMoyen || 0);
   const base = Number(item.prixMoyen || item.prixBase || item.prix || 0);
@@ -314,6 +337,35 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
                 <Select label="État" value={item.etat} onChange={(value) => patchItem(item.id, { etat: value })} options={etatOptions} />
                 <Select label="Urgence" value={item.urgence} onChange={(value) => patchItem(item.id, { urgence: value })} options={urgenceOptions} />
                 <label className="full">Commentaire{item.etat === 'dangereux' && <small className="requiredText">Obligatoire si dangereux</small>}<textarea required={item.etat === 'dangereux'} value={item.commentaire || ''} onChange={(event) => patchItem(item.id, { commentaire: event.target.value })} /></label>
+
+                {/* Détails pour devis : dimensions + types pour portes/fenêtres */}
+                <details className="dimensionsBlock">
+                  <summary>📐 Détails dimensions / type (pour devis)</summary>
+                  <div className="dimensionsGrid">
+                    <Select label="Unité" value={item.unite || 'forfait'} onChange={(value) => patchItem(item.id, { unite: value })} options={UNITE_OPTIONS} />
+                    <label>Quantité<input type="number" min="0" step="0.01" value={item.quantite ?? 1} onChange={(e) => patchItem(item.id, { quantite: Number(e.target.value) || 0 })} /></label>
+                    {(isPorte(item) || isFenetre(item) || isSurfacique(item) || isLineaire(item)) && (
+                      <>
+                        <label>Hauteur (cm)<input type="number" min="0" value={item.hauteur || ''} onChange={(e) => patchItem(item.id, { hauteur: Number(e.target.value) || 0 })} /></label>
+                        <label>Largeur (cm)<input type="number" min="0" value={item.largeur || ''} onChange={(e) => patchItem(item.id, { largeur: Number(e.target.value) || 0 })} /></label>
+                      </>
+                    )}
+                    {isPorte(item) && (
+                      <>
+                        <Select label="Ouvrant" value={item.typeOuvrant || ''} onChange={(value) => patchItem(item.id, { typeOuvrant: value })} options={OUVRANT_OPTIONS} />
+                        <Select label="Matériau porte" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={MATERIAU_PORTE_OPTIONS} />
+                        <Select label="Volet" value={item.volet || ''} onChange={(value) => patchItem(item.id, { volet: value })} options={VOLET_OPTIONS} />
+                      </>
+                    )}
+                    {isFenetre(item) && (
+                      <>
+                        <Select label="Type fenêtre" value={item.materiau || ''} onChange={(value) => patchItem(item.id, { materiau: value })} options={MATERIAU_FENETRE_OPTIONS} />
+                        <Select label="Volet" value={item.volet || ''} onChange={(value) => patchItem(item.id, { volet: value })} options={VOLET_OPTIONS} />
+                      </>
+                    )}
+                  </div>
+                </details>
+
                 <div className="photoActions">
                   <label className="uploadBtn primaryPhoto"><Camera size={18} /> Prendre photo<input type="file" accept="image/*" capture="environment" onChange={(event) => { addPhoto(item, event.target.files?.[0], 'terrain'); event.target.value = ''; }} /></label>
                   <label className="uploadBtn"><ImagePlus size={18} /> Importer<input type="file" accept="image/*" onChange={(event) => { addPhoto(item, event.target.files?.[0], 'galerie'); event.target.value = ''; }} /></label>

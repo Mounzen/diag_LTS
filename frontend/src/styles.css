@@ -1132,3 +1132,11 @@ th { color: #667085; font-size: 13px; }
 .mapPopup small{color:#64748b;font-size:11px}
 
 .costRange{display:block;font-size:11px;color:#64748b;font-weight:500;margin-top:2px}
+
+/* === Bloc dimensions item diag === */
+.dimensionsBlock{grid-column:1 / -1;margin-top:8px;padding:8px 12px;background:#f7f9fc;border-radius:6px;border:1px solid #e2e8f0}
+.dimensionsBlock summary{cursor:pointer;font-size:12px;font-weight:600;color:#475569;padding:4px 0}
+.dimensionsBlock summary:hover{color:#1457a8}
+.dimensionsGrid{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px;margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0}
+.dimensionsGrid label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:#475569;font-weight:600}
+.dimensionsGrid input,.dimensionsGrid select{padding:5px 8px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;background:#fff}
