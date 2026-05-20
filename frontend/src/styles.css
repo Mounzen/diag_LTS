@@ -1181,3 +1181,225 @@ th { color: #667085; font-size: 13px; }
 .hashLabel code{background:#f1f5f9;padding:2px 4px;border-radius:3px;font-family:monospace}
 .signatureFilled{background:#ecfdf5}
 .hashRef{font-size:9px;color:#94a3b8}
+
+/* ============================================================================
+   UX MOBILE — Optimisations pour téléphone (< 768px) et tablette (< 1024px)
+   ============================================================================ */
+
+/* Inputs/selects à minimum 16px → évite le zoom auto iOS au focus */
+@media (max-width: 1024px) {
+  input, select, textarea, button {
+    font-size: 16px !important;
+  }
+  /* Boutons : touch targets de 44px minimum (recommandation Apple/Google) */
+  button, .button, label.uploadBtn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  /* Inputs et selects : touch targets 44px */
+  input, select {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+  textarea {
+    min-height: 80px;
+    padding: 10px 12px;
+  }
+}
+
+/* Mobile (< 768px) : layout simplifié, éléments empilés */
+@media (max-width: 768px) {
+  /* Modal pleine largeur sans bord coupé */
+  .modalContent {
+    max-width: 100%;
+    width: 100%;
+    padding: 14px;
+    max-height: calc(100vh - 40px);
+    margin: 20px 8px;
+  }
+  .modalOverlay {
+    padding: 20px 8px;
+  }
+
+  /* Form grids : 1 colonne sur mobile */
+  .devisForm .formGrid,
+  .conformiteGrid,
+  .caracGrid,
+  .dimensionsGrid,
+  .reportGrid,
+  .filterGrid,
+  .formGrid {
+    grid-template-columns: 1fr !important;
+  }
+  .devisForm .formGrid label.wide {
+    grid-column: span 1;
+  }
+
+  /* Headers de page : empilés */
+  .planningHeader,
+  .conformiteFooter,
+  .caracFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Items du diagnostic : padding réduit */
+  .diagItem {
+    padding: 12px;
+  }
+
+  /* Actions du diagItem : 100% largeur */
+  .photoActions {
+    flex-wrap: wrap;
+  }
+  .photoActions label,
+  .photoActions button {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+  }
+
+  /* Tableau : scroll horizontal forcé */
+  .tableWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  table {
+    min-width: 600px;
+  }
+
+  /* Cartographie : hauteur réduite */
+  .mapContainer {
+    height: 50vh;
+    min-height: 350px;
+  }
+
+  /* Bottom nav : plus visible */
+  .bottomNav button {
+    flex: 1;
+    padding: 10px 6px;
+    font-size: 12px;
+    min-height: 56px;
+  }
+
+  /* Cacher la sidebar sur mobile (le bottom nav suffit) */
+  .sidebar {
+    display: none;
+  }
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  /* Sticky save button — flotte en bas de l'écran sur mobile */
+  .stickyActions {
+    position: sticky;
+    bottom: 60px; /* au-dessus de la bottomNav */
+    background: #fff;
+    padding: 10px;
+    border-top: 1px solid #e2e8f0;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+    z-index: 50;
+    display: flex;
+    gap: 8px;
+    margin: 0 -16px;
+  }
+  .stickyActions button {
+    flex: 1;
+    font-weight: 600;
+  }
+
+  /* Section title : empilé */
+  .sectionTitle {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .sectionTitle h1 {
+    font-size: 20px;
+  }
+
+  /* KPIs du DiagnosticEditor : 2 colonnes */
+  .reportGrid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+  }
+  .impactKpis {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Photo slider : ajuster */
+  .photoSlider {
+    aspect-ratio: 3/4;
+  }
+
+  /* Audit page : filtres en colonne */
+  .auditFilters {
+    grid-template-columns: 1fr;
+  }
+
+  /* Détails dimensions : padding réduit */
+  .dimensionsBlock {
+    padding: 8px 10px;
+  }
+
+  /* Zones diag : sticky header au sein de la zone */
+  .zoneHeader {
+    position: sticky;
+    top: 0;
+    background: linear-gradient(to bottom, #fff 70%, transparent);
+    z-index: 5;
+    padding-top: 8px;
+  }
+
+  /* Boutons d'action principaux : plus gros */
+  .actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .actions button,
+  .actions .button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Très petit mobile (< 380px) : économies de place */
+@media (max-width: 380px) {
+  body {
+    font-size: 14px;
+  }
+  h1 { font-size: 18px; }
+  h2 { font-size: 16px; }
+  .modalContent {
+    padding: 10px;
+  }
+}
+
+/* Accessibilité : focus visible plus net (utile clavier ET tactile) */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 3px solid #1457a8;
+  outline-offset: 2px;
+}
+
+/* Pull-to-refresh natif désactivé sur formulaires (évite gestes parasites) */
+form, .diagItem {
+  overscroll-behavior-y: contain;
+}
+
+/* === Zones diagnostic collapsibles === */
+.zoneCollapsible{margin-bottom:16px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#fff}
+.zoneCollapsible > summary{cursor:pointer;padding:14px 16px;background:#f7f9fc;display:flex;justify-content:space-between;align-items:center;list-style:none;user-select:none;border-bottom:1px solid #e2e8f0}
+.zoneCollapsible > summary::-webkit-details-marker{display:none}
+.zoneCollapsible > summary::before{content:'▸';display:inline-block;margin-right:8px;transition:transform 0.15s;color:#1457a8;font-weight:bold}
+.zoneCollapsible[open] > summary::before{transform:rotate(90deg)}
+.zoneCollapsible > summary:hover{background:#eef2f6}
+.zoneCollapsible[open] > summary{background:#dbeafe;border-color:#93c5fd}
+.zoneProgress{color:#64748b;font-weight:500;font-size:12px}
+.zoneCollapsible > .diagItem{margin:0;border-bottom:1px solid #f1f5f9;border-radius:0}
+.zoneCollapsible > .diagItem:last-of-type{border-bottom:none}
+
+/* Indicateur visuel zones complétées */
+.zoneCollapsible[open]:has(summary){border-color:#93c5fd}

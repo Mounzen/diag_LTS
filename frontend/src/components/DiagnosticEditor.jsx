@@ -406,9 +406,21 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
           </div>
         </section>
 
-        {groups.map(([zone, items]) => (
-          <section className="zoneBlock" key={zone}>
-            <div className="zoneHeader"><h2>{zone}</h2><strong>{money(items.reduce((sum, item) => sum + estimatedCost(item), 0))}</strong></div>
+        {groups.map(([zone, items], zoneIdx) => {
+          // Compteur de complétion par zone
+          const zoneItems = items.length;
+          const zoneControlled = items.filter((it) => !['non_controle', 'non_concerne'].includes(it.etat)).length;
+          const zonePct = zoneItems > 0 ? Math.round((zoneControlled / zoneItems) * 100) : 0;
+          // Première zone toujours ouverte par défaut, les autres fermées
+          return (
+          <details className="zoneBlock zoneCollapsible" key={zone} {...(zoneIdx === 0 ? { open: true } : {})}>
+            <summary className="zoneHeader">
+              <span>
+                <h2 style={{display: 'inline-block', margin: 0}}>{zone}</h2>
+                <small className="zoneProgress"> · {zoneControlled}/{zoneItems} ({zonePct}%)</small>
+              </span>
+              <strong>{money(items.reduce((sum, item) => sum + estimatedCost(item), 0))}</strong>
+            </summary>
             {items.map((item) => (
               <article className="diagItem" key={item.id}>
                 <div><strong>{item.element}</strong>{item.pieceNom && <small>{item.pieceNom}</small>}<small>{item.travauxProposes || 'Travaux proposés calculés à la sauvegarde'}</small></div>
@@ -488,10 +500,12 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
                 {item.photos?.length > 0 && <div className="thumbs">{item.photos.map((url) => <span className="thumb" key={url}><img src={assetUrl(url)} alt="" /><button type="button" onClick={() => removePhoto(item, url)}>Supprimer</button></span>)}</div>}
               </article>
             ))}
-          </section>
-        ))}
+          </details>
+          );
+        })}
         <label>Commentaire général<textarea className="generalComment" value={draft.commentaireGeneral || ''} onChange={(event) => markDirty({ ...draftRef.current, commentaireGeneral: event.target.value })} /></label>
         <div className="actions stickyBottom diagnosticActions">
+          <div className="stickyActions">
           <button className="secondary" type="button" onClick={() => saveDraft('manual')} disabled={saving}><Save size={18} /> Sauvegarder</button>
           {draft.id && (
             <>
@@ -506,7 +520,8 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
             </>
           )}
           <button type="button" onClick={() => validate('diagnostic_termine')} disabled={saving}><CheckCircle2 size={18} /> Terminer</button>
-          {['responsable', 'admin'].includes(user.role) && draft.id && <button type="button" onClick={() => validate('valide_responsable')} disabled={saving}><CheckCircle2 size={18} /> Valider</button>}
+          {['responsable', 'admin'].includes(user.role) && draft.id && <button type="button" onClick={() => validate('valide_responsable')} disabled={saving}><CheckCircle2 size={18} /> Valider</button>
+          </div>}
         </div>
         {message && <p className="notice">{message}</p>}
       </section>
