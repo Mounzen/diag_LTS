@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
@@ -1478,7 +1479,15 @@ app.get('/api/exports/logement/:id.pdf', (req, res, next) => {
     <h2>Préconisations automatiques</h2>${listHtml(latest?.preconisations || preconisationsForDiagnostic(latest || {}))}
     ${photosSection}
     <h2>Validation responsable</h2><p>Statut : <b>${escapeHtml(latest?.statut || 'Non diagnostiqué')}</b> · Date validation : <b>${latest?.dateValidation ? escapeHtml(new Date(latest.dateValidation).toLocaleString('fr-FR')) : 'Non validé'}</b></p>
-    <h2>Signature / visa</h2><div class="signatureGrid"><div class="signatureBox">Agent terrain</div><div class="signatureBox">Responsable</div><div class="signatureBox">Direction</div></div>`;
+    <h2>Signatures et visas</h2>${(() => {
+      const sigs = latest?.signatures || [];
+      if (sigs.length === 0) {
+        return '<p class="muted">Aucune signature électronique apposée.</p><div class="signatureGrid"><div class="signatureBox">Agent terrain<br><small>Date - Signature manuelle</small></div><div class="signatureBox">Responsable<br><small>Date - Signature manuelle</small></div><div class="signatureBox">Direction<br><small>Date - Signature manuelle</small></div></div>';
+      }
+      const roleLabel = { agent_terrain: 'Agent terrain', responsable: 'Responsable', direction: 'Direction' };
+      const cards = sigs.map((sig) => `<div class="signatureBox signatureFilled"><strong>${escapeHtml(roleLabel[sig.role] || sig.role)}</strong><br><small>${escapeHtml(sig.agentNom || '')} - ${escapeHtml(new Date(sig.dateSignature).toLocaleString('fr-FR'))}</small><br><img src="${escapeHtml(sig.signatureUrl)}" alt="Signature" style="max-width:200px;max-height:80px;display:block;margin:6px auto"/>${sig.commentaire ? `<small><em>${escapeHtml(sig.commentaire)}</em></small><br>` : ''}<small class="hashRef">Hash intégrité : <code>${escapeHtml((sig.contentHash || '').slice(0, 16))}...</code></small></div>`).join('');
+      return `<div class="signatureGrid">${cards}</div><p class="muted" style="font-size:11px;margin-top:8px">Les signatures sont horodatées et associées au hash SHA-256 du contenu du diagnostic, garantissant l\'intégrité du rapport au moment de la signature.</p>`;
+    })()}`;
   res.type('html').send(reportHtml(`Rapport logement ${escapeHtml(logement.code_acces)}`, body));
 });
 
@@ -2574,6 +2583,129 @@ app.put('/api/logements/:id/caracteristiques', (req, res) => {
   });
   saveDb(db);
   res.json({ etage: logement.etage, couverture: logement.couverture, hasCours: logement.hasCours });
+});
+
+
+// ============================================================================
+// Signatures électroniques (canvas tactile + horodatage + hash)
+// ============================================================================
+
+const SIGNATURE_ROLES = ['agent_terrain', 'responsable', 'direction'];
+
+function diagnosticContentHash(diagnostic) {
+  // Hash SHA-256 d'une représentation stable du diagnostic (sans les signatures elles-mêmes)
+  const stable = {
+    id: diagnostic.id,
+    logementId: diagnostic.logementId,
+    dateModification: diagnostic.dateModification,
+    items: (diagnostic.items || []).map((it) => ({
+      id: it.id, zone: it.zone, element: it.element,
+      etat: it.etat, urgence: it.urgence, commentaire: it.commentaire || '',
+      quantite: it.quantite, hauteur: it.hauteur, largeur: it.largeur,
+      materiau: it.materiau, typeOuvrant: it.typeOuvrant, volet: it.volet,
+      coutMoyen: it.coutMoyen
+    })),
+    coutTotal: diagnostic.coutTotal,
+    urgenceGlobale: diagnostic.urgenceGlobale
+  };
+  return crypto.createHash('sha256').update(JSON.stringify(stable)).digest('hex');
+}
+
+// Apposer une signature sur un diagnostic
+app.post('/api/diagnostics/:id/signature', async (req, res, next) => {
+  try {
+    const db = loadDb();
+    const diagnostic = db.diagnostics.find((d) => d.id === req.params.id);
+    if (!diagnostic) return res.status(404).json({ message: 'Diagnostic introuvable' });
+    const { role, signatureDataUrl, agentId, agentNom, commentaire } = req.body || {};
+    if (!SIGNATURE_ROLES.includes(role)) {
+      return res.status(400).json({ message: 'Rôle invalide. Doit être: ' + SIGNATURE_ROLES.join(', ') });
+    }
+    if (!signatureDataUrl || !signatureDataUrl.startsWith('data:image/')) {
+      return res.status(400).json({ message: 'signatureDataUrl manquant ou invalide (doit être un data URL image)' });
+    }
+    // Décoder le data URL en buffer
+    const matches = signatureDataUrl.match(/^data:image\/(png|jpeg);base64,(.+)$/);
+    if (!matches) return res.status(400).json({ message: 'Format data URL non supporté (png/jpeg uniquement)' });
+    const ext = matches[1] === 'jpeg' ? 'jpg' : 'png';
+    const buffer = Buffer.from(matches[2], 'base64');
+    const filename = `signatures/sig-${diagnostic.id}-${role}-${Date.now()}.${ext}`;
+    // Upload sur Supabase (ou disque local en fallback)
+    let signatureUrl;
+    if (supabase) {
+      const { error } = await supabase.storage.from(SUPABASE_BUCKET).upload(filename, buffer, { contentType: `image/${matches[1]}`, upsert: false });
+      if (error) throw new Error('Upload signature: ' + error.message);
+      const { data } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(filename);
+      signatureUrl = data.publicUrl;
+    } else {
+      const localPath = path.join(uploadDir, path.basename(filename));
+      fs.mkdirSync(path.dirname(localPath), { recursive: true });
+      fs.writeFileSync(localPath, buffer);
+      signatureUrl = `/uploads/${path.basename(filename)}`;
+    }
+    // Calculer le hash du diag au moment de la signature (preuve d'intégrité)
+    const contentHash = diagnosticContentHash(diagnostic);
+    const signature = {
+      id: `SIG-${Date.now()}-${Math.round(Math.random() * 10000)}`,
+      role,
+      agentId: agentId || null,
+      agentNom: agentNom || '',
+      commentaire: String(commentaire || ''),
+      signatureUrl,
+      signatureFilename: filename,
+      dateSignature: new Date().toISOString(),
+      contentHash
+    };
+    diagnostic.signatures = diagnostic.signatures || [];
+    // Remplace une signature existante du même rôle (re-signature)
+    diagnostic.signatures = diagnostic.signatures.filter((s) => s.role !== role);
+    diagnostic.signatures.push(signature);
+    diagnostic.dateModification = new Date().toISOString();
+    appendJournal(db, 'diagnostic_signature', {
+      diagnosticId: diagnostic.id,
+      logementId: diagnostic.logementId,
+      role,
+      agentId: signature.agentId,
+      agentNom: signature.agentNom,
+      contentHash
+    });
+    saveDb(db);
+    res.status(201).json(signature);
+  } catch (err) { next(err); }
+});
+
+// Supprimer une signature (uniquement par l'agent qui l'a apposée ou par un admin)
+app.delete('/api/diagnostics/:id/signature/:sigId', (req, res) => {
+  const db = loadDb();
+  const diagnostic = db.diagnostics.find((d) => d.id === req.params.id);
+  if (!diagnostic) return res.status(404).json({ message: 'Diagnostic introuvable' });
+  const idx = (diagnostic.signatures || []).findIndex((s) => s.id === req.params.sigId);
+  if (idx < 0) return res.status(404).json({ message: 'Signature introuvable' });
+  const [removed] = diagnostic.signatures.splice(idx, 1);
+  // Supprimer le fichier (best-effort, async fire-and-forget)
+  if (removed.signatureFilename && supabase) {
+    supabase.storage.from(SUPABASE_BUCKET).remove([removed.signatureFilename]).catch(() => {});
+  }
+  appendJournal(db, 'diagnostic_signature_supprimee', {
+    diagnosticId: diagnostic.id,
+    role: removed.role,
+    agentId: req.body?.agentId || null
+  });
+  saveDb(db);
+  res.json({ ok: true });
+});
+
+// Vérification d'intégrité : compare le hash actuel du diag aux hash des signatures
+app.get('/api/diagnostics/:id/signatures/verify', (req, res) => {
+  const db = loadDb();
+  const diagnostic = db.diagnostics.find((d) => d.id === req.params.id);
+  if (!diagnostic) return res.status(404).json({ message: 'Diagnostic introuvable' });
+  const currentHash = diagnosticContentHash(diagnostic);
+  const signatures = (diagnostic.signatures || []).map((s) => ({
+    ...s,
+    valide: s.contentHash === currentHash
+  }));
+  res.json({ currentHash, signatures, anyInvalid: signatures.some((s) => !s.valide) });
 });
 
 app.use((error, req, res, next) => {

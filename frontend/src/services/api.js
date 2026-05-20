@@ -139,5 +139,8 @@ export const api = {
   geocodeStatus: () => request('/api/admin/geocode-status'),
   geocodeBatch: (limit = 50) => request('/api/admin/geocode-batch', { method: 'POST', body: JSON.stringify({ limit }) }),
   geocodeLogement: (id, payload = {}) => request(`/api/logements/${encodeURIComponent(id)}/geocode`, { method: 'POST', body: JSON.stringify(payload) }),
-  updateCaracteristiques: (id, payload) => request(`/api/logements/${encodeURIComponent(id)}/caracteristiques`, { method: 'PUT', body: JSON.stringify(payload) })
+  updateCaracteristiques: (id, payload) => request(`/api/logements/${encodeURIComponent(id)}/caracteristiques`, { method: 'PUT', body: JSON.stringify(payload) }),
+  signDiagnostic: (id, payload) => request(`/api/diagnostics/${encodeURIComponent(id)}/signature`, { method: 'POST', body: JSON.stringify(payload) }),
+  deleteSignature: (diagnosticId, sigId, payload = {}) => request(`/api/diagnostics/${encodeURIComponent(diagnosticId)}/signature/${encodeURIComponent(sigId)}`, { method: 'DELETE', body: JSON.stringify(payload) }),
+  verifySignatures: (id) => request(`/api/diagnostics/${encodeURIComponent(id)}/signatures/verify`)
 };

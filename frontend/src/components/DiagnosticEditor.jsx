@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Camera, CheckCircle2, ImagePlus, Save } from 'lucide-react';
+import { ArrowLeft, Camera, CheckCircle2, ImagePlus, PenLine, Save, ShieldCheck } from 'lucide-react';
 import { api, assetUrl } from '../services/api';
+import SignaturePad from './SignaturePad';
 import { ETATS, URGENCES } from '../config/options';
 import { badgeClass, label, money } from '../utils/format';
 import { Select } from './ui';
@@ -132,6 +133,7 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
   const [dirty, setDirty] = useState(!diagnostic.id);
   const [lastSavedAt, setLastSavedAt] = useState(diagnostic.dateModification || null);
   const [message, setMessage] = useState('');
+  const [signaturePanelRole, setSignaturePanelRole] = useState(null);
   const draftRef = useRef(draft);
   const savingRef = useRef(false);
   const etatOptions = meta?.etats?.map((item) => [item.value, item.label]) || ETATS;
@@ -339,6 +341,44 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
 
   return (
     <div className="diagnosticMobile">
+      {signaturePanelRole && (
+        <div className="modalOverlay" onClick={(e) => { if (e.target === e.currentTarget) setSignaturePanelRole(null); }}>
+          <div className="modalContent">
+            <SignaturePad
+              diagnosticId={draft.id}
+              role={signaturePanelRole}
+              user={user}
+              onSigned={(sig) => {
+                setSignaturePanelRole(null);
+                setMessage(`Signature ${sig.role} apposée avec succès`);
+                // Re-fetch le diagnostic pour avoir les signatures à jour
+                api.diagnostic(draft.id).then((updated) => {
+                  draftRef.current = updated;
+                  setDraft(updated);
+                });
+              }}
+              onCancel={() => setSignaturePanelRole(null)}
+            />
+          </div>
+        </div>
+      )}
+      {draft.signatures?.length > 0 && (
+        <section className="signaturesPanel">
+          <h3><ShieldCheck size={16} /> Signatures apposées</h3>
+          <div className="signaturesList">
+            {draft.signatures.map((sig) => (
+              <div key={sig.id} className="signatureItem">
+                <strong>{sig.role.replace('_', ' ')}</strong>
+                <span>{sig.agentNom || '-'} · {new Date(sig.dateSignature).toLocaleString('fr-FR')}</span>
+                <img src={sig.signatureUrl} alt={`Signature ${sig.role}`} />
+                {sig.commentaire && <small>{sig.commentaire}</small>}
+                <small className="hashLabel">Hash : <code>{sig.contentHash?.slice(0, 16)}...</code></small>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="panel editor">
         <div className="sectionTitle sticky diagnosticHeader">
           <div>
@@ -453,6 +493,18 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
         <label>Commentaire général<textarea className="generalComment" value={draft.commentaireGeneral || ''} onChange={(event) => markDirty({ ...draftRef.current, commentaireGeneral: event.target.value })} /></label>
         <div className="actions stickyBottom diagnosticActions">
           <button className="secondary" type="button" onClick={() => saveDraft('manual')} disabled={saving}><Save size={18} /> Sauvegarder</button>
+          {draft.id && (
+            <>
+              <button className="secondary" type="button" onClick={() => setSignaturePanelRole('agent_terrain')}><PenLine size={18} /> Signer (agent)</button>
+              {user?.role === 'responsable' && <button className="secondary" type="button" onClick={() => setSignaturePanelRole('responsable')}><PenLine size={18} /> Signer (responsable)</button>}
+              {user?.role === 'admin' && (
+                <>
+                  <button className="secondary" type="button" onClick={() => setSignaturePanelRole('responsable')}><PenLine size={18} /> Signer (responsable)</button>
+                  <button className="secondary" type="button" onClick={() => setSignaturePanelRole('direction')}><PenLine size={18} /> Signer (direction)</button>
+                </>
+              )}
+            </>
+          )}
           <button type="button" onClick={() => validate('diagnostic_termine')} disabled={saving}><CheckCircle2 size={18} /> Terminer</button>
           {['responsable', 'admin'].includes(user.role) && draft.id && <button type="button" onClick={() => validate('valide_responsable')} disabled={saving}><CheckCircle2 size={18} /> Valider</button>}
         </div>

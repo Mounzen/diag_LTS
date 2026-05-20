@@ -1156,3 +1156,28 @@ th { color: #667085; font-size: 13px; }
 
 .surfaceCalcul{display:flex;flex-direction:column;gap:2px;padding:6px 10px;background:#dbeafe;border-radius:6px;border:1px solid #93c5fd}
 .surfaceCalcul strong{color:#1d4ed8;font-size:14px;font-weight:700}
+
+/* === Signature électronique === */
+.signaturePad{max-width:560px}
+.signaturePad h3{margin:0 0 4px}
+.signaturePad .muted{margin:0 0 14px;font-size:13px}
+.signatureCanvasWrap{position:relative;border:2px dashed #cbd5e1;border-radius:8px;background:#fff;height:200px;overflow:hidden}
+.signatureCanvas{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
+.signatureHint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#cbd5e1;font-size:14px;font-style:italic;pointer-events:none}
+.signatureCommentaire{display:flex;flex-direction:column;gap:4px;margin-top:12px;font-size:12px;color:#475569;font-weight:600}
+.signatureCommentaire input{padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px}
+.signatureActions{display:flex;justify-content:space-between;gap:8px;margin-top:14px;flex-wrap:wrap}
+.signaturePad .error{color:#b42318;background:#fee;padding:8px 12px;border-radius:6px;margin-top:8px;font-size:13px}
+
+.signaturesPanel{margin:14px 0;padding:14px;background:#ecfdf5;border-left:4px solid #16a34a;border-radius:8px}
+.signaturesPanel h3{margin:0 0 10px;display:flex;align-items:center;gap:8px;color:#15803d;font-size:14px}
+.signaturesList{display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px}
+.signatureItem{background:#fff;padding:10px;border-radius:6px;border:1px solid #d1fae5;display:flex;flex-direction:column;gap:4px}
+.signatureItem strong{color:#15803d;font-size:13px;text-transform:capitalize}
+.signatureItem span{font-size:11px;color:#64748b}
+.signatureItem img{max-width:100%;max-height:60px;object-fit:contain;background:#fafafa;border-radius:4px;margin:4px 0}
+.signatureItem small{font-size:11px;color:#64748b}
+.hashLabel{font-size:10px}
+.hashLabel code{background:#f1f5f9;padding:2px 4px;border-radius:3px;font-family:monospace}
+.signatureFilled{background:#ecfdf5}
+.hashRef{font-size:9px;color:#94a3b8}
