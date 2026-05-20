@@ -520,8 +520,8 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
             </>
           )}
           <button type="button" onClick={() => validate('diagnostic_termine')} disabled={saving}><CheckCircle2 size={18} /> Terminer</button>
-          {['responsable', 'admin'].includes(user.role) && draft.id && <button type="button" onClick={() => validate('valide_responsable')} disabled={saving}><CheckCircle2 size={18} /> Valider</button>
-          </div>}
+          {['responsable', 'admin'].includes(user.role) && draft.id && <button type="button" onClick={() => validate('valide_responsable')} disabled={saving}><CheckCircle2 size={18} /> Valider</button>}
+          </div>
         </div>
         {message && <p className="notice">{message}</p>}
       </section>

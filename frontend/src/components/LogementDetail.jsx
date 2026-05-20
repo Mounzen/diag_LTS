@@ -104,7 +104,8 @@ export default function LogementDetail({ detail, meta, user, onUpdated, onStart,
         {canResume && <button onClick={onResume}><RefreshCw size={18} /> Reprendre diagnostic</button>}
         <button onClick={onStart}><Play size={18} /> Démarrer diagnostic</button>
         <button className="secondary" onClick={() => setShowDevisForm(true)}><Plus size={18} /> Créer un devis</button>
-        <a className="button secondary" href={exportUrl(`/api/exports/logement/${logement.id}.pdf`)} target="_blank" rel="noreferrer"><FileText size={18} /> Export PDF logement</a>
+        <a className="button primary" href={exportUrl(`/api/exports/logement/${logement.id}.pdf.pro`)} title="PDF natif pro avec page de garde, sommaire et numérotation"><FileText size={18} /> Rapport PDF complet</a>
+        <a className="button secondary" href={exportUrl(`/api/exports/logement/${logement.id}.pdf`)} target="_blank" rel="noreferrer" title="Version HTML imprimable"><FileText size={18} /> Aperçu HTML</a>
         <a className="button secondary" href={exportUrl(`/api/exports/consultation/logement/${logement.id}.pdf`)} target="_blank" rel="noreferrer" title="PDF de consultation entreprise sans prix"><FileText size={18} /> Consultation entreprise PDF</a>
         <a className="button secondary" href={exportUrl(`/api/exports/consultation/logement/${logement.id}.xlsx`)} title="Excel de consultation entreprise sans prix"><FileText size={18} /> Consultation entreprise Excel</a>
         <a className="button secondary" href={exportUrl(`/api/exports/lts/${logement.code_lts}.pdf`)} target="_blank" rel="noreferrer"><FileText size={18} /> Export PDF LTS</a>

@@ -22,6 +22,7 @@ import {
 } from '../config/configurationLogement.js';
 import { ensureDataDirectories, loadDb, loadReferentiel, saveDb, setSaveCallback, uploadDir, dbPath } from './services/storeService.js';
 import { redigerSyntheseExecutive } from './services/aiRedactionService.js';
+import { generateLogementPdf } from './services/pdfReportService.js';
 import { authRoutes } from './routes/authRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
 import { createClient } from '@supabase/supabase-js';
@@ -2706,6 +2707,28 @@ app.get('/api/diagnostics/:id/signatures/verify', (req, res) => {
     valide: s.contentHash === currentHash
   }));
   res.json({ currentHash, signatures, anyInvalid: signatures.some((s) => !s.valide) });
+});
+
+
+// ============================================================================
+// PDF natif pro (pdfkit) — page de garde, sommaire, header/footer, numérotation
+// ============================================================================
+
+app.get('/api/exports/logement/:id.pdf.pro', async (req, res, next) => {
+  try {
+    const db = loadDb();
+    const logement = db.logements.find((l) => l.id === req.params.id);
+    if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+    const latest = latestDiagnosticForLogement(db, logement.id);
+    const configData = getLogementConfiguration(db, logement.id);
+    const consolidation = consolidateLogement(logement.id, db);
+    const photos = latest ? photosForDiagnostic(db, latest) : [];
+
+    const buffer = await generateLogementPdf(db, logement, latest, configData, consolidation, photos);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="rapport-${logement.code_acces}.pdf"`);
+    res.send(buffer);
+  } catch (err) { next(err); }
 });
 
 app.use((error, req, res, next) => {
