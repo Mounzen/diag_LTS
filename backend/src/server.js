@@ -2745,7 +2745,13 @@ async function startServer() {
   app.listen(PORT, () => console.log(`DIAG-LTS API sur http://localhost:${PORT}`));
 }
 
-startServer().catch((err) => {
-  console.error('[Startup] erreur fatale:', err);
-  process.exit(1);
-});
+// Ne pas démarrer le serveur si on est en mode test (vitest importe juste `app`)
+if (process.env.NODE_ENV !== 'test') {
+  startServer().catch((err) => {
+    console.error('[Startup] erreur fatale:', err);
+    process.exit(1);
+  });
+}
+
+// Export pour les tests (supertest)
+export { app };

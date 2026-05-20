@@ -8,7 +8,7 @@ import { ensureConfigurationCollections } from '../../config/configurationLogeme
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 export const root = path.resolve(moduleDir, '..', '..');
 export const dataDir = path.join(root, 'data');
-export const dbPath = path.join(dataDir, 'db.json');
+export const dbPath = process.env.DIAG_DB_PATH ? path.resolve(process.env.DIAG_DB_PATH) : path.join(dataDir, 'db.json');
 export const referentielPath = path.join(dataDir, 'referentielTravaux.json');
 export const uploadDir = path.join(root, 'uploads');
 
