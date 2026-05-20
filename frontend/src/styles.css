@@ -1403,3 +1403,13 @@ form, .diagItem {
 
 /* Indicateur visuel zones complétées */
 .zoneCollapsible[open]:has(summary){border-color:#93c5fd}
+
+/* === Bannière offline / sync === */
+.offlineBanner{position:sticky;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 14px;font-size:13px;font-weight:600;color:#fff;width:100%}
+.offlineBanner.banner-offline{background:#b42318}
+.offlineBanner.banner-online{background:#0284c7}
+.offlineBanner span{display:flex;align-items:center;gap:8px}
+.bannerBtn{background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);padding:4px 10px;font-size:12px;border-radius:4px;cursor:pointer;min-height:auto !important}
+.bannerBtn:hover{background:rgba(255,255,255,0.3)}
+@keyframes spin{from{transform:rotate(0)} to{transform:rotate(360deg)}}
+.spinning{animation:spin 1s linear infinite}

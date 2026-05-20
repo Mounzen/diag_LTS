@@ -12,6 +12,23 @@ async function request(path, options = {}) {
   const headers = options.body instanceof FormData
     ? { ...(options.headers || {}) }
     : { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  const method = (options.method || 'GET').toUpperCase();
+  // Si hors-ligne et opération d'écriture (POST/PUT/DELETE) : enqueue pour resync
+  const isWrite = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method);
+  if (typeof navigator !== 'undefined' && !navigator.onLine && isWrite && !(options.body instanceof FormData)) {
+    try {
+      const { enqueueOperation } = await import('../utils/offlineStore.js');
+      let body = null;
+      if (options.body) {
+        try { body = JSON.parse(options.body); } catch { body = options.body; }
+      }
+      await enqueueOperation({ method, path, body, label: path });
+      // Renvoyer une réponse optimiste pour ne pas casser l'UI
+      return body || { offline: true, queued: true };
+    } catch (err) {
+      console.warn('Offline enqueue failed:', err);
+    }
+  }
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
   return parseResponse(res);
 }

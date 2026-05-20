@@ -1,6 +1,7 @@
 import React from 'react';
 import { Archive, BarChart3, CalendarClock, ClipboardCheck, Eye, FileText, LogOut, MapPinned, Menu, TrendingUp, User } from 'lucide-react';
 import BrandLogo from './BrandLogo';
+import OfflineBanner from './OfflineBanner';
 
 const nav = [
   ['terrain', 'Terrain', ClipboardCheck],
@@ -15,7 +16,7 @@ const nav = [
 
 export default function Layout({ user, page, setPage, onLogout, children }) {
   return (
-    <div className="shell">
+    <div className="shell"><OfflineBanner />
       <aside className="sidebar">
         <div className="brand">
           <BrandLogo variant="dark" className="sidebarLogo" />
