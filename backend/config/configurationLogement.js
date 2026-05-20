@@ -18,27 +18,27 @@ export const TYPES_PIECES = [
 export const ELEMENTS_PAR_TYPE_PIECE = {
   chambre: [
     'Porte chambre',
-    'Fenêtre chambre',
     'Sol chambre',
     'Murs chambre',
     'Plafond chambre',
     'Peinture chambre',
-    'Prises électriques',
-    'Interrupteurs',
     'Luminaire / point lumineux',
+    'Interrupteurs',
+    'Prises électriques',
+    'Fenêtre chambre',
     'Ventilation',
     'Humidité / moisissures'
   ],
   sejour: [
     'Porte séjour',
-    'Fenêtres séjour',
     'Sol séjour',
     'Murs séjour',
     'Plafond séjour',
     'Peinture séjour',
-    'Prises électriques',
-    'Interrupteurs',
     'Luminaire / point lumineux',
+    'Interrupteurs',
+    'Prises électriques',
+    'Fenêtres séjour',
     'Ventilation',
     'Humidité / moisissures'
   ],
@@ -71,70 +71,70 @@ export const ELEMENTS_PAR_TYPE_PIECE = {
   ],
   cuisine: [
     'Porte cuisine',
-    'Jalousie cuisine',
     'Sol cuisine',
     'Murs cuisine',
     'Plafond cuisine',
     'Faïence cuisine',
+    'Luminaire / point lumineux',
+    'Interrupteurs',
+    'Prises électriques',
+    'Jalousie cuisine',
     'Évier',
     'Robinetterie cuisine',
     'Plan de travail',
     'Meubles cuisine',
     'Plomberie cuisine',
     'Évacuation cuisine',
-    'Prises électriques',
-    'Interrupteurs',
-    'Luminaire / point lumineux',
     'Ventilation',
     'Humidité'
   ],
   salle_eau: [
     'Porte salle d\'eau',
-    'Jalousie salle d\'eau',
     'Sol salle d\'eau',
     'Murs salle d\'eau',
     'Plafond salle d\'eau',
     'Faïence',
+    'Luminaire / point lumineux',
+    'Interrupteurs',
+    'Prises électriques',
+    'Jalousie salle d\'eau',
     'Douche',
     'Lavabo',
     'Robinetterie',
     'Plomberie',
     'Évacuation',
-    'Prises électriques',
-    'Interrupteurs',
-    'Luminaire / point lumineux',
     'Ventilation',
     'Humidité / moisissures'
   ],
   salle_de_bain: [
     'Porte salle de bain',
-    'Jalousie salle de bain',
     'Sol salle de bain',
     'Murs salle de bain',
     'Plafond salle de bain',
     'Faïence',
+    'Luminaire / point lumineux',
+    'Interrupteurs',
+    'Prises électriques',
+    'Jalousie salle de bain',
     'Douche',
     'Lavabo',
     'Robinetterie',
     'Plomberie',
     'Évacuation',
-    'Prises électriques',
-    'Interrupteurs',
-    'Luminaire / point lumineux',
     'Ventilation',
     'Humidité / moisissures'
   ],
   wc: [
     'Porte WC',
-    'Jalousie WC',
     'Sol WC',
     'Murs WC',
     'Plafond WC',
+    'Luminaire / point lumineux',
+    'Interrupteurs',
+    'Jalousie WC',
     'WC (cuvette)',
     'Chasse d\'eau',
     'Évacuation WC',
-    'Interrupteurs',
-    'Luminaire / point lumineux',
     'Ventilation'
   ],
   varangue: [
@@ -200,15 +200,16 @@ export const ELEMENTS_PAR_TYPE_PIECE = {
   ]
 };
 
+// Ordonné comme un parcours d'arrivée : on voit la façade, on passe le portillon,
+// on entre par la porte, on parcourt les pièces (gérées séparément via ELEMENTS_PAR_TYPE_PIECE),
+// puis sécurité/réseaux globaux.
 export const DIAGNOSTIC_SOCLE_LOGEMENT = [
-  { zone: 'Extérieur', elements: ['Façade', 'Peinture extérieure'] },
-  { zone: 'Toiture / étanchéité', elements: ['Toiture', 'Étanchéité', 'Eaux pluviales'] },
-  { zone: 'Évacuation / assainissement', elements: ['Évacuation', 'Assainissement'] },
-  { zone: 'Entrée / menuiserie', elements: ['Porte entrée', 'Menuiserie'] },
-  { zone: 'Structure intérieure', elements: ['Sols', 'Murs', 'Peinture intérieure', 'Plafonds', 'Faux plafonds'] },
-  { zone: 'Réseaux', elements: ['Électricité', 'Plomberie', 'Ventilation', 'Humidité'] },
-  { zone: 'Pièces techniques', elements: ['Cuisine', 'Salle de bain', 'WC'] },
-  { zone: 'Sécurité / accessibilité', elements: ['Sécurité', 'Accessibilité', 'Risques occupants'] }
+  { zone: '1. Façade et toiture (vue arrivée)', elements: ['Façade', 'Peinture extérieure'] },
+  { zone: '2. Entrée / menuiserie', elements: ['Porte entrée', 'Menuiserie'] },
+  { zone: '3. Toiture / étanchéité', elements: ['Toiture', 'Étanchéité', 'Eaux pluviales'] },
+  { zone: '4. Réseaux globaux', elements: ['Électricité', 'Plomberie', 'Ventilation', 'Humidité'] },
+  { zone: '5. Évacuation / assainissement', elements: ['Évacuation', 'Assainissement'] },
+  { zone: '6. Sécurité / accessibilité', elements: ['Sécurité', 'Accessibilité', 'Risques occupants'] }
 ];
 
 // Éléments spécifiques selon le contexte du logement
@@ -276,85 +277,59 @@ export function createPiece(logementId, payload = {}) {
 }
 
 // Génère automatiquement les pièces par défaut selon le type T1/T2/T3/T4/T5/T6 du logement
+// Les pièces sont retournées dans l'ordre du parcours visuel : Séjour → Cuisine → Chambres → SDB → WC
 function generateDefaultPieces(logement) {
   const type = String(logement.type_logement || '').toUpperCase().trim();
   const nbChambres = ({ T1: 1, T2: 1, T3: 2, T4: 3, T5: 4, T6: 5, T7: 6 }[type]) || 1;
-  const hasSejour = type !== 'T1'; // T1 = studio sans séjour séparé
+  const hasSejour = type !== 'T1';
   const now = new Date().toISOString();
   const pieces = [];
-  // Chambres
-  for (let i = 1; i <= nbChambres; i++) {
-    pieces.push({
-      id: `PIE-${logement.id}-CHAMBRE-${i}`,
-      logementId: logement.id,
-      nom: nbChambres > 1 ? `Chambre ${i}` : 'Chambre',
-      type: 'chambre',
-      surfaceEstimee: 0,
-      commentaire: '',
-      elementsDiagnostic: [...ELEMENTS_PAR_TYPE_PIECE.chambre],
-      archivedAt: null,
-      dateCreation: now,
-      dateModification: now,
-      autoGenerated: true
-    });
-  }
-  // Séjour (sauf T1)
+  let ordre = 0;
+
+  // 1. Séjour (en premier dans le parcours, sauf T1)
   if (hasSejour) {
     pieces.push({
-      id: `PIE-${logement.id}-SEJOUR`,
-      logementId: logement.id,
-      nom: 'Séjour',
-      type: 'sejour',
-      surfaceEstimee: 0,
-      commentaire: '',
+      id: `PIE-${logement.id}-SEJOUR`, logementId: logement.id, nom: 'Séjour',
+      type: 'sejour', surfaceEstimee: 0, commentaire: '',
       elementsDiagnostic: [...ELEMENTS_PAR_TYPE_PIECE.sejour],
-      archivedAt: null,
-      dateCreation: now,
-      dateModification: now,
-      autoGenerated: true
+      archivedAt: null, dateCreation: now, dateModification: now,
+      autoGenerated: true, ordre: ++ordre
     });
   }
-  // Cuisine
+  // 2. Cuisine
   pieces.push({
-    id: `PIE-${logement.id}-CUISINE`,
-    logementId: logement.id,
-    nom: 'Cuisine',
-    type: 'cuisine',
-    surfaceEstimee: 0,
-    commentaire: '',
+    id: `PIE-${logement.id}-CUISINE`, logementId: logement.id, nom: 'Cuisine',
+    type: 'cuisine', surfaceEstimee: 0, commentaire: '',
     elementsDiagnostic: [...ELEMENTS_PAR_TYPE_PIECE.cuisine],
-    archivedAt: null,
-    dateCreation: now,
-    dateModification: now,
-    autoGenerated: true
+    archivedAt: null, dateCreation: now, dateModification: now,
+    autoGenerated: true, ordre: ++ordre
   });
-  // Salle de bain
+  // 3. Chambres
+  for (let i = 1; i <= nbChambres; i++) {
+    pieces.push({
+      id: `PIE-${logement.id}-CHAMBRE-${i}`, logementId: logement.id,
+      nom: nbChambres > 1 ? `Chambre ${i}` : 'Chambre',
+      type: 'chambre', surfaceEstimee: 0, commentaire: '',
+      elementsDiagnostic: [...ELEMENTS_PAR_TYPE_PIECE.chambre],
+      archivedAt: null, dateCreation: now, dateModification: now,
+      autoGenerated: true, ordre: ++ordre
+    });
+  }
+  // 4. Salle de bain
   pieces.push({
-    id: `PIE-${logement.id}-SDB`,
-    logementId: logement.id,
-    nom: 'Salle de bain',
-    type: 'salle_de_bain',
-    surfaceEstimee: 0,
-    commentaire: '',
+    id: `PIE-${logement.id}-SDB`, logementId: logement.id, nom: 'Salle de bain',
+    type: 'salle_de_bain', surfaceEstimee: 0, commentaire: '',
     elementsDiagnostic: [...ELEMENTS_PAR_TYPE_PIECE.salle_de_bain],
-    archivedAt: null,
-    dateCreation: now,
-    dateModification: now,
-    autoGenerated: true
+    archivedAt: null, dateCreation: now, dateModification: now,
+    autoGenerated: true, ordre: ++ordre
   });
-  // WC
+  // 5. WC (en dernier)
   pieces.push({
-    id: `PIE-${logement.id}-WC`,
-    logementId: logement.id,
-    nom: 'WC',
-    type: 'wc',
-    surfaceEstimee: 0,
-    commentaire: '',
+    id: `PIE-${logement.id}-WC`, logementId: logement.id, nom: 'WC',
+    type: 'wc', surfaceEstimee: 0, commentaire: '',
     elementsDiagnostic: [...ELEMENTS_PAR_TYPE_PIECE.wc],
-    archivedAt: null,
-    dateCreation: now,
-    dateModification: now,
-    autoGenerated: true
+    archivedAt: null, dateCreation: now, dateModification: now,
+    autoGenerated: true, ordre: ++ordre
   });
   return pieces;
 }
@@ -431,11 +406,16 @@ export function buildDiagnosticItemsFromConfiguration(logement, configuration, p
     return 'forfait';
   }
 
-  for (const piece of pieces.filter((p) => p.logementId === logement.id && !p.archivedAt)) {
-    // Fusion intelligente : éléments existants + nouveaux du template (sans doublons)
+  // Trier les pièces par ordre du parcours (séjour, cuisine, chambres, SDB, WC)
+  const orderedPieces = pieces
+    .filter((p) => p.logementId === logement.id && !p.archivedAt)
+    .sort((a, b) => (Number(a.ordre) || 99) - (Number(b.ordre) || 99) || String(a.nom).localeCompare(String(b.nom)));
+  for (const piece of orderedPieces) {
+    // Template en premier (ordre du parcours visuel) + éléments custom ajoutés ensuite
     const templateElements = ELEMENTS_PAR_TYPE_PIECE[piece.type] || [];
     const existingElements = piece.elementsDiagnostic || [];
-    const allElements = [...new Set([...existingElements, ...templateElements])];
+    // L'ordre du template prime : on liste templateElements d'abord, puis les éléments custom
+    const allElements = [...new Set([...templateElements, ...existingElements])];
     for (const element of allElements) {
       const id = itemId(['piece', piece.id, element]);
       const defaultMateriau = defaultMateriauFor(element);
