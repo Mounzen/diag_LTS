@@ -137,9 +137,9 @@ export default function TerrainPage({ user }) {
         <div className="mobileList">
           {logements.map((logement) => (
             <button key={logement.id} type="button" className={selected?.id === logement.id ? 'listItem selected' : 'listItem'} onClick={() => selectLogement(logement)}>
-              <strong>{logement.code_acces}</strong>
-              <span>{logement.nom_lts} · {logement.adresse}</span>
-              <small>{logement.type_logement || 'Type non renseigné'} · {logement.statut || 'Statut non renseigné'}</small>
+              <strong>{logement.adresse || logement.code_acces}</strong>
+              <span>LTS {logement.nom_lts}{logement.quartier ? ` · ${logement.quartier}` : ''}</span>
+              <small>{logement.type_logement || 'Type non renseigné'} · {logement.statut || 'Statut non renseigné'} · {logement.code_acces}</small>
               <span className={badgeClass(logement.statutPatrimonial)}>{patrimoineLabel(meta, logement.statutPatrimonial)}</span>
             </button>
           ))}

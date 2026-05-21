@@ -68,7 +68,7 @@ export default function LogementDetail({ detail, meta, user, onUpdated, onStart,
         </div>
       )}
       <div className="sectionTitle">
-        <div><h1>{logement.code_acces}</h1><p>{logement.adresse}</p></div>
+        <div><h1 className="logementAdresse">{logement.adresse || logement.code_acces}</h1><p className="logementMeta">{logement.nom_lts ? `LTS ${logement.nom_lts}` : ''}{logement.quartier ? ` · ${logement.quartier}` : ''}<span className="refCode"> · {logement.code_acces}</span></p></div>
         <div className="badgeStack">
           <span className={badgeClass(logement.statutPatrimonial)}>{patrimoineLabel(meta, logement.statutPatrimonial)}</span>
           <span className={badgeClass(logement.niveauUrgence)}>{label(URGENCES, logement.niveauUrgence)}</span>

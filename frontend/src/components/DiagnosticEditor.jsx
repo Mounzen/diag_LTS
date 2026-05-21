@@ -383,7 +383,13 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
         <div className="sectionTitle sticky diagnosticHeader">
           <div>
             <button className="linkBtn" type="button" onClick={onBack}><ArrowLeft size={18} /> Fiche logement</button>
-            <h1>Diagnostic {logement.code_acces}</h1>
+            <h1 className="logementAdresse">{logement.adresse || `Diagnostic ${logement.code_acces}`}</h1>
+            <p className="logementMeta">
+              {logement.nom_lts ? `LTS ${logement.nom_lts}` : ''}
+              {logement.quartier ? ` · ${logement.quartier}` : ''}
+              {logement.type_logement ? ` · ${logement.type_logement}` : ''}
+              <span className="refCode"> · {logement.code_acces}</span>
+            </p>
             <p>{report.progress}% contrôlé · {money(report.total)}</p>
             <span className="saveState">{saving ? 'Sauvegarde...' : `Dernière sauvegarde : ${saveTime(lastSavedAt)}`}</span>
           </div>

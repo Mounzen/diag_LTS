@@ -40,8 +40,8 @@ function drawHeader(doc, logement) {
   doc.save();
   doc.rect(0, 0, doc.page.width, 42).fill(COLORS.primary);
   doc.fillColor(COLORS.white).fontSize(10).font('Helvetica-Bold')
-    .text('DIAG-LTS · ' + logement.code_acces, 40, 14, { continued: true })
-    .font('Helvetica').text(' · ' + logement.nom_lts + ' · ' + logement.adresse, { width: doc.page.width - 80 });
+    .text('DIAG-LTS · ' + (logement.adresse || logement.code_acces), 40, 14, { continued: true })
+    .font('Helvetica').text(' · LTS ' + (logement.nom_lts || '') + ' · ' + (logement.quartier || ''), { width: doc.page.width - 80 });
   doc.restore();
 }
 
@@ -99,9 +99,9 @@ export function generateLogementPdf(db, logement, latest, configData, consolidat
       // Bloc identification du logement
       const yBox = 260;
       doc.rect(50, yBox, doc.page.width - 100, 200).strokeColor(COLORS.primary).lineWidth(2).stroke();
-      doc.fillColor(COLORS.primary).fontSize(16).font('Helvetica-Bold').text(logement.code_acces, 70, yBox + 20);
-      doc.fillColor(COLORS.text).fontSize(13).font('Helvetica-Bold').text(logement.nom_lts || '', 70, yBox + 50);
-      doc.fontSize(11).font('Helvetica').text(logement.adresse || '', 70, yBox + 75);
+      doc.fillColor(COLORS.primary).fontSize(18).font('Helvetica-Bold').text(logement.adresse || logement.code_acces, 70, yBox + 18, { width: doc.page.width - 140 });
+      doc.fillColor(COLORS.text).fontSize(13).font('Helvetica-Bold').text(`LTS ${logement.nom_lts || ''}${logement.quartier ? ' · ' + logement.quartier : ''}`, 70, yBox + 50);
+      doc.fillColor(COLORS.muted).fontSize(10).font('Helvetica').text('Réf. ' + logement.code_acces, 70, yBox + 75);
       doc.moveDown(0.5);
       let y = yBox + 110;
       const rows = [

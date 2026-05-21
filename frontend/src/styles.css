@@ -416,6 +416,26 @@ p { color: #667085; }
 .diagnosticHeader {
   align-items: center;
 }
+.logementAdresse {
+  font-size: 26px;
+  line-height: 1.15;
+  font-weight: 900;
+  margin: 4px 0 2px;
+  color: #101828;
+}
+.logementMeta {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #1d4ed8;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+.logementMeta .refCode {
+  text-transform: none;
+  color: #98a2b3;
+  font-weight: 700;
+}
 .saveState {
   display: inline-flex;
   margin-top: 8px;
