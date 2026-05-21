@@ -6,7 +6,7 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "start": "node --max-old-space-size=400 src/server.js",
+    "start": "node --max-old-space-size=256 src/server.js",
     "import": "node src/importExcel.js",
     "test": "vitest run",
     "test:watch": "vitest"
