@@ -4,20 +4,20 @@ import ErrorPage from '../pages/ErrorPage';
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, message: '' };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, message: error?.message || String(error) };
   }
 
-  componentDidCatch(error) {
-    console.error(error);
+  componentDidCatch(error, info) {
+    console.error(error, info);
   }
 
   render() {
     if (this.state.hasError) {
-      return <ErrorPage text="Recharge la page ou reconnecte-toi si le problème persiste." />;
+      return <ErrorPage text="Recharge la page ou reconnecte-toi si le problème persiste." detail={this.state.message} />;
     }
     return this.props.children;
   }
