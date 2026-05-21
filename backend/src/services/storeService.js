@@ -74,7 +74,15 @@ function ensureSimpleUsers(db) {
   return changed;
 }
 
+// Cache mémoire : db.json (~4 MB) n'est lu / parsé / enrichi qu'UNE seule fois.
+// Les requêtes suivantes réutilisent le même objet en RAM au lieu de reparser
+// 4 MB (~30 MB de RAM) à chaque appel → c'est ce qui faisait dépasser les 512 MB
+// du plan gratuit Render (OOM). saveDb() garde le cache synchronisé avec le disque,
+// et reloadDb() l'invalide après une restauration externe (Supabase / backup).
+let cachedDb = null;
+
 export function loadDb() {
+  if (cachedDb) return cachedDb;
   if (!fs.existsSync(dbPath)) {
     throw new Error('Base db.json absente. Lancez : npm run import --prefix backend');
   }
@@ -109,8 +117,17 @@ export function loadDb() {
   db.ai_redaction_logs = db.ai_redaction_logs || [];
   db.diagnosticTemplate = db.diagnosticTemplate?.length ? db.diagnosticTemplate : DIAGNOSTIC_TEMPLATE;
   ensureConfigurationCollections(db);
+  cachedDb = db;
   if (usersChanged || !Array.isArray(db.secteurs) || !db.secteurs.length) saveDb(db);
-  return db;
+  return cachedDb;
+}
+
+// Invalide le cache puis relit le fichier depuis le disque.
+// À appeler après une restauration externe (Supabase / backup) qui écrit db.json
+// directement sans passer par saveDb(), sinon le cache resterait obsolète.
+export function reloadDb() {
+  cachedDb = null;
+  return loadDb();
 }
 
 let saveCallback = null;
@@ -120,6 +137,7 @@ export function setSaveCallback(cb) {
 }
 
 export function saveDb(db) {
+  cachedDb = db;
   writeJson(dbPath, db);
   if (saveCallback) {
     Promise.resolve().then(() => saveCallback(db)).catch((err) => {

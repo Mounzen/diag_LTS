@@ -20,7 +20,7 @@ import {
   createDefaultConfiguration,
   createPiece
 } from '../config/configurationLogement.js';
-import { ensureDataDirectories, loadDb, loadReferentiel, saveDb, setSaveCallback, uploadDir, dbPath } from './services/storeService.js';
+import { ensureDataDirectories, loadDb, reloadDb, loadReferentiel, saveDb, setSaveCallback, uploadDir, dbPath } from './services/storeService.js';
 import { redigerSyntheseExecutive } from './services/aiRedactionService.js';
 import { generateLogementPdf } from './services/pdfReportService.js';
 import { authRoutes } from './routes/authRoutes.js';
@@ -114,6 +114,7 @@ async function loadDbFromSupabase() {
       return false;
     }
     fs.writeFileSync(dbPath, text, 'utf-8');
+    reloadDb(); // invalide le cache mémoire pour repartir sur la version restaurée
     console.log(`[DB] ✓ Restauré depuis Supabase: ${remoteLogements} logements, ${Buffer.byteLength(text)} bytes`);
     return true;
   } catch (err) {
