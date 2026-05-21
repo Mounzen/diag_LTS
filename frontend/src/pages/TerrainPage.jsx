@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Home, Search } from 'lucide-react';
+import { ArrowLeft, Home, Search, Plus } from 'lucide-react';
 import { api } from '../services/api';
 import { badgeClass, patrimoineLabel, roleLabel, todayIso } from '../utils/format';
 import { EmptyState, Loading, Select } from '../components/ui';
@@ -27,13 +27,19 @@ export default function TerrainPage({ user }) {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState('');
+  const [allLts, setAllLts] = useState([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({ code_lts: '', adresse: '', type_logement: 'T3', statut: 'vacant' });
+  const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState('');
 
   useEffect(() => {
-    Promise.all([api.meta(), api.secteurs(), api.diagnostics()])
-      .then(([metaResult, secteursResult, diagnosticsResult]) => {
+    Promise.all([api.meta(), api.secteurs(), api.diagnostics(), api.lts()])
+      .then(([metaResult, secteursResult, diagnosticsResult, ltsResult]) => {
         setMeta(metaResult);
         setSecteurs(secteursResult);
         setDiagnostics(diagnosticsResult);
+        setAllLts(ltsResult || []);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -106,6 +112,26 @@ export default function TerrainPage({ user }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  async function submitAddLogement(event) {
+    event.preventDefault();
+    setAddError('');
+    if (!addForm.code_lts) { setAddError('Choisis un LTS'); return; }
+    if (!addForm.adresse.trim()) { setAddError('Saisis une adresse'); return; }
+    setAddBusy(true);
+    try {
+      const created = await api.createLogement({ ...addForm, adresse: addForm.adresse.trim(), agentId: user.id });
+      setShowAdd(false);
+      setAddForm({ code_lts: '', adresse: '', type_logement: 'T3', statut: 'vacant' });
+      // Filtre sur le LTS du logement créé pour qu'il apparaisse, puis ouvre sa fiche
+      setFilters({ secteur: created.secteur || '', code_lts: created.code_lts || '', quartier: '', parcActif: '', patrimoine: '', q: '' });
+      setSelected(created);
+    } catch (err) {
+      setAddError(err.message);
+    } finally {
+      setAddBusy(false);
+    }
+  }
+
   async function refreshAfterSave(diagnostic) {
     const [allDiagnostics, detail] = await Promise.all([api.diagnostics(), api.logement(diagnostic.logementId)]);
     setDiagnostics(allDiagnostics);
@@ -125,6 +151,11 @@ export default function TerrainPage({ user }) {
           <div><h1>Accueil agent</h1><p>Mes diagnostics du jour : {todayDiagnostics.length}</p></div>
           <span className="badge neutral">{roleLabel(user.role)}</span>
         </div>
+        {user.role === 'admin' && (
+          <button type="button" className="secondary addLogementBtn" onClick={() => { setShowAdd(true); setAddError(''); }}>
+            <Plus size={16} /> Ajouter un logement
+          </button>
+        )}
         {error && <p className="error">{error}</p>}
         <div className="filterGrid">
           <Select label="Secteur" value={filters.secteur} onChange={(value) => updateFilter('secteur', value)} options={secteurs.map((s) => [s, `Secteur ${s}`])} />
@@ -156,6 +187,39 @@ export default function TerrainPage({ user }) {
         {selectedDetail && !activeDiagnostic && <LogementDetail detail={selectedDetail} meta={meta} user={user} onUpdated={setSelectedDetail} onStart={() => startDiagnostic('new')} onResume={() => startDiagnostic('resume')} canResume={Boolean(draftForSelected)} />}
         {selectedDetail && activeDiagnostic && <DiagnosticEditor user={user} meta={meta} logement={selectedDetail.logement} diagnostic={activeDiagnostic} onBack={backToDetail} onSaved={refreshAfterSave} />}
       </section>
+
+      {showAdd && (
+        <div className="modalOverlay" onClick={() => !addBusy && setShowAdd(false)}>
+          <div className="modalContent" onClick={(event) => event.stopPropagation()}>
+            <div className="sectionTitle"><h2 style={{ margin: 0 }}>Ajouter un logement</h2></div>
+            <form className="devisForm" onSubmit={submitAddLogement}>
+              <div className="formGrid">
+                <Select label="LTS" value={addForm.code_lts} onChange={(value) => setAddForm((f) => ({ ...f, code_lts: value }))} options={allLts.map((item) => [item.code_lts, `${item.code_lts} - ${item.nom_lts}`])} />
+                <label>Type
+                  <select value={addForm.type_logement} onChange={(event) => setAddForm((f) => ({ ...f, type_logement: event.target.value }))}>
+                    {['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </label>
+                <label>Statut
+                  <select value={addForm.statut} onChange={(event) => setAddForm((f) => ({ ...f, statut: event.target.value }))}>
+                    <option value="vacant">vacant</option>
+                    <option value="occupé">occupé</option>
+                  </select>
+                </label>
+                <label className="wide">Adresse
+                  <input value={addForm.adresse} onChange={(event) => setAddForm((f) => ({ ...f, adresse: event.target.value }))} placeholder="ex : 10 Chemin Alfred Mazérieux" />
+                </label>
+              </div>
+              <p className="muted" style={{ fontSize: 12 }}>Le secteur, le quartier et l'identifiant (ex : LTS-007-010) sont déduits automatiquement du LTS choisi.</p>
+              {addError && <p className="error">{addError}</p>}
+              <div className="formActions">
+                <button type="button" className="secondary" onClick={() => setShowAdd(false)} disabled={addBusy}>Annuler</button>
+                <button type="submit" className="primary" disabled={addBusy}>{addBusy ? 'Ajout…' : 'Créer le logement'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

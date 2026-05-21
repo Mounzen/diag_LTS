@@ -218,17 +218,19 @@ async function loadDbFromPostgres() {
 }
 
 async function syncDbToPostgres(db) {
-  if (!supabase) return;
+  if (!supabase) return false;
   if (pgSyncInProgress) {
     pgSyncQueued = true;
-    return;
+    return true; // sera traité par la file → pas de double écriture Storage
   }
   pgSyncInProgress = true;
+  let ok = false;
   try {
     const { error } = await supabase
       .from('app_state')
       .upsert({ id: APP_STATE_ID, data: db, updated_at: new Date().toISOString() }, { onConflict: 'id' });
     if (error) throw error;
+    ok = true;
   } catch (err) {
     console.error('[DB/PG] échec upsert app_state:', err.message);
   } finally {
@@ -238,12 +240,16 @@ async function syncDbToPostgres(db) {
       setImmediate(() => syncDbToPostgres(loadDb()));
     }
   }
+  return ok;
 }
 
-// Persistance combinée : Postgres = source de vérité (Phase 1), Storage = miroir
-// de secours pendant la transition (retiré en Phase 3). Chacun gère son garde-fou.
-function persistDb(db) {
-  return Promise.allSettled([syncDbToPostgres(db), syncDbToSupabase(db)]);
+// Persistance : Postgres = source de vérité (Phase 1). On N'écrit PLUS le miroir
+// Storage à chaque save : deux sérialisations de ~4-6 Mo en parallèle faisaient
+// dépasser les 512 Mo de RAM sur Render (OOM). Storage ne sert que de filet si
+// Postgres échoue ; le backup quotidien daté reste actif par ailleurs.
+async function persistDb(db) {
+  const ok = await syncDbToPostgres(db);
+  if (!ok) await syncDbToSupabase(db);
 }
 
 // Enregistrer le callback de sync sur chaque saveDb
@@ -947,6 +953,66 @@ app.get('/api/logements', (req, res) => {
     out = out.filter((l) => `${l.code_acces} ${l.adresse} ${l.nom_lts} ${l.quartier} ${l.occupant?.nom || ''}`.toLowerCase().includes(needle));
   }
   res.json(out.slice(0, 1500));
+});
+
+// Création d'un logement (admin) — Postgres étant la source de vérité, l'ajout passe
+// par l'API (plus par git db.json). Dérive nom_lts/secteur/quartier d'un logement
+// frère du même LTS et génère le prochain identifiant de la série (ex: LTS-007-010).
+app.post('/api/logements', (req, res) => {
+  const db = loadDb();
+  const body = req.body || {};
+  const codeLts = String(body.code_lts || '').trim();
+  const adresse = String(body.adresse || '').trim();
+  if (!codeLts) return res.status(400).json({ message: 'code_lts requis' });
+  if (!adresse) return res.status(400).json({ message: 'adresse requise' });
+
+  const freres = db.logements.filter((l) => l.code_lts === codeLts);
+  const ref = freres[0] || {};
+  const nomLts = String(body.nom_lts || ref.nom_lts || '').trim();
+  const secteur = String(body.secteur || ref.secteur || '').trim();
+  const quartier = String(body.quartier || ref.quartier || '').trim();
+
+  let maxNum = 0;
+  for (const l of freres) {
+    const m = String(l.code_acces || l.id || '').match(/-(\d+)$/);
+    if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+  }
+  const id = `${codeLts}-${String(maxNum + 1).padStart(3, '0')}`;
+  if (db.logements.some((l) => l.id === id)) {
+    return res.status(409).json({ message: `Identifiant ${id} déjà existant` });
+  }
+
+  const maxOrdre = db.logements.reduce((acc, l) => Math.max(acc, Number(l.ordre) || 0), 0);
+  const logement = {
+    id,
+    code_acces: id,
+    code_lts: codeLts,
+    nom_lts: nomLts,
+    secteur,
+    quartier,
+    adresse,
+    type_logement: String(body.type_logement || ref.type_logement || 'T3').trim(),
+    statut: String(body.statut || 'vacant').trim(),
+    etat_general: String(body.etat_general || 'bon').trim(),
+    date_creation: String(body.date_creation || ref.date_creation || ''),
+    occupant: body.occupant || { id_occupant: '', nom: '', prenom: '', telephone: '', email: '', statut: 'locataire' },
+    ordre: maxOrdre + 1,
+    statutPatrimonial: String(body.statutPatrimonial || ref.statutPatrimonial || 'location_pure'),
+    dansParcActif: body.dansParcActif !== undefined ? Boolean(body.dansParcActif) : true,
+    diagnosticObligatoire: body.diagnosticObligatoire !== undefined ? Boolean(body.diagnosticObligatoire) : true,
+    budgetScope: String(body.budgetScope || ref.budgetScope || 'actif'),
+    dateSortieParc: '',
+    commentairePatrimonial: '',
+    // Valeurs structurelles par défaut, cohérentes avec loadDb : tôle, RDC, cours
+    couverture: body.couverture || 'tole',
+    etage: body.etage || 'RDC',
+    hasCours: body.hasCours !== undefined ? Boolean(body.hasCours) : true
+  };
+
+  db.logements.push(logement);
+  appendJournal(db, 'logement_cree', { logementId: id, code_lts: codeLts, adresse, par: body.agentId || body.par || null });
+  saveDb(db);
+  res.status(201).json(logement);
 });
 
 app.get('/api/logements/:id', (req, res) => {

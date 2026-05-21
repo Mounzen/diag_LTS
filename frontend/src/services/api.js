@@ -89,6 +89,7 @@ export const api = {
   lts: (secteur = '') => request(`/api/lts${qs({ secteur })}`),
   logements: (params = {}) => request(`/api/logements${qs(params)}`),
   logement: (id) => request(`/api/logements/${encodeURIComponent(id)}`),
+  createLogement: (payload) => request('/api/logements', { method: 'POST', body: JSON.stringify(payload) }),
   updatePatrimoine: (id, payload) => request(`/api/logements/${encodeURIComponent(id)}/patrimoine`, { method: 'PUT', body: JSON.stringify(payload) }),
   logementConfiguration: (id) => request(`/api/logements/${encodeURIComponent(id)}/configuration`),
   updateLogementConfiguration: (id, payload) => request(`/api/logements/${encodeURIComponent(id)}/configuration`, { method: 'PUT', body: JSON.stringify(payload) }),
