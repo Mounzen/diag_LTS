@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MapPinned, Navigation, RefreshCw } from 'lucide-react';
+import { MapPinned, Navigation, RefreshCw, Crosshair } from 'lucide-react';
 import { api } from '../services/api';
 
 const URGENCE_COLORS = {
@@ -51,6 +51,7 @@ export default function MapPage({ user }) {
   const [filtreSecteur, setFiltreSecteur] = useState('');
   const [loading, setLoading] = useState(true);
   const [batchLaunched, setBatchLaunched] = useState(false);
+  const [recalageBusy, setRecalageBusy] = useState(false);
 
   async function loadData() {
     try {
@@ -82,6 +83,21 @@ export default function MapPage({ user }) {
       setTimeout(() => clearInterval(poll), 120000); // arrêt poll après 2 min max
     } catch (err) {
       alert('Erreur : ' + err.message);
+    }
+  }
+
+  async function recalerLts() {
+    if (!window.confirm('Recaler les logements mal placés sur le centre de leur LTS ?\n\nLes logements aberrants ou sans coordonnées seront regroupés autour de leur résidence (LTS). Les logements déjà bien placés ne bougent pas.')) return;
+    setRecalageBusy(true);
+    try {
+      const r = await api.recalerLts();
+      await loadData();
+      await loadStatus();
+      alert(`Recalage terminé : ${r.recales} logement(s) repositionné(s) sur ${r.totalLts} LTS.`);
+    } catch (err) {
+      alert('Erreur : ' + err.message);
+    } finally {
+      setRecalageBusy(false);
     }
   }
 
@@ -158,6 +174,11 @@ export default function MapPage({ user }) {
           {data.sansCoords > 0 && (
             <button onClick={launchGeocodeBatch} disabled={batchLaunched || status.inProgress} className="primary">
               <Navigation size={16} /> {status.inProgress || batchLaunched ? 'Géocodage en cours...' : `Géocoder ${Math.min(50, data.sansCoords)} logements`}
+            </button>
+          )}
+          {user?.role === 'admin' && (
+            <button onClick={recalerLts} disabled={recalageBusy} className="secondary" title="Replace les logements mal situés sur le centre de leur LTS">
+              <Crosshair size={16} /> {recalageBusy ? 'Recalage...' : 'Recaler par LTS'}
             </button>
           )}
           <button onClick={() => { loadData(); loadStatus(); }} className="iconBtn" title="Actualiser"><RefreshCw size={16} /></button>

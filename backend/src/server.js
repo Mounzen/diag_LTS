@@ -2495,6 +2495,78 @@ app.get('/api/admin/geocode-status', (req, res) => {
   });
 });
 
+// Recalage des logements par LTS : ancre chaque logement sur le centre robuste
+// (médiane) de son LTS. Corrige les logements mal géocodés (aberrants, loin du
+// groupe) ou sans coordonnées, en les replaçant autour du centre du LTS, sans
+// déplacer ceux déjà bien situés dans leur groupe. Garantit un regroupement
+// correct par secteur/quartier/LTS même quand Nominatim se trompe sur une adresse.
+app.post('/api/admin/geocode-recaler-lts', async (req, res, next) => {
+  try {
+    const db = loadDb();
+    const SEUIL = 0.004; // ~440 m : au-delà du centre du LTS = logement mal placé
+    const quartierCache = new Map();
+
+    const groupes = new Map();
+    for (const l of db.logements) {
+      const key = l.code_lts || l.nom_lts || 'SANS_LTS';
+      if (!groupes.has(key)) groupes.set(key, []);
+      groupes.get(key).push(l);
+    }
+
+    const median = (arr) => {
+      const s = [...arr].sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    };
+
+    let recales = 0;
+    let groupesQuartier = 0;
+    for (const [, groupe] of groupes) {
+      const avecCoords = groupe.filter((l) => Number(l.latitude) && Number(l.longitude));
+      let ancre = null;
+
+      if (avecCoords.length >= 2) {
+        // Centre robuste : la médiane ignore un éventuel point aberrant
+        ancre = {
+          lat: median(avecCoords.map((l) => Number(l.latitude))),
+          lng: median(avecCoords.map((l) => Number(l.longitude)))
+        };
+      } else {
+        // 0 ou 1 coordonnée fiable dans le LTS → on ancre sur le quartier
+        // (plus sûr qu'une adresse douteuse géocodée de travers)
+        const q = groupe.find((l) => l.quartier)?.quartier;
+        const qResult = q ? await geocodeQuartier(q, quartierCache) : null;
+        ancre = qResult
+          ? { lat: qResult.latitude, lng: qResult.longitude }
+          : { lat: SAINT_DENIS_CENTER.lat, lng: SAINT_DENIS_CENTER.lng };
+        groupesQuartier += 1;
+      }
+
+      // Replacer en spirale déterministe (angle d'or) les logements aberrants / sans coords
+      let idx = 0;
+      for (const l of groupe) {
+        const hasCoords = Number(l.latitude) && Number(l.longitude);
+        const dist = hasCoords
+          ? Math.hypot(Number(l.latitude) - ancre.lat, Number(l.longitude) - ancre.lng)
+          : Infinity;
+        if (!hasCoords || dist > SEUIL) {
+          const angle = idx * 2.39996; // angle d'or → répartition régulière
+          const r = 0.00018 * Math.sqrt(idx + 1); // ~20 m × √index, reste un cluster serré
+          l.latitude = ancre.lat + r * Math.cos(angle);
+          l.longitude = ancre.lng + r * Math.sin(angle);
+          l.geocodeSource = 'recalage_lts';
+          l.geocodeAt = new Date().toISOString();
+          recales += 1;
+        }
+        idx += 1;
+      }
+    }
+
+    saveDb(db);
+    res.json({ ok: true, recales, totalLts: groupes.size, groupesAncresQuartier: groupesQuartier });
+  } catch (err) { next(err); }
+});
+
 
 // Endpoint admin : force la restauration depuis git (efface la version Supabase)
 app.post('/api/admin/reset-db', async (req, res) => {
