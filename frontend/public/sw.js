@@ -1,5 +1,5 @@
 // Service Worker DIAG-LTS — Cache-first pour assets, network-first pour API
-const CACHE_VERSION = 'diag-lts-v1';
+const CACHE_VERSION = 'diag-lts-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -56,7 +56,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Assets statiques : cache-first
+  // Navigation (document HTML) : NETWORK-FIRST.
+  // Indispensable : on sert toujours le dernier index.html (donc les bons hash
+  // d'assets Vite). En cache-first, on servait un vieil index pointant vers des
+  // fichiers /assets/*.css|js supprimés au déploiement suivant → 404 + page cassée.
+  const isNavigation = request.mode === 'navigate'
+    || (request.destination === 'document')
+    || (request.headers.get('accept') || '').includes('text/html');
+
+  if (isNavigation) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(STATIC_CACHE).then((cache) => cache.put('/index.html', clone));
+          return response;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match('/index.html')))
+    );
+    return;
+  }
+
+  // Assets statiques (hashés, immuables) : cache-first
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
@@ -67,13 +88,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone));
         }
         return response;
-      }).catch(() => {
-        // Si offline et fichier HTML demandé, retourner l'index
-        if (request.headers.get('accept')?.includes('text/html')) {
-          return caches.match('/index.html');
-        }
-        return new Response('Offline', { status: 503 });
-      });
+      }).catch(() => new Response('Offline', { status: 503 }));
     })
   );
 });
