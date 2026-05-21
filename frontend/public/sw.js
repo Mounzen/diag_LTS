@@ -1,5 +1,5 @@
 // Service Worker DIAG-LTS — Cache-first pour assets, network-first pour API
-const CACHE_VERSION = 'diag-lts-v2';
+const CACHE_VERSION = 'diag-lts-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -51,7 +51,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, clone));
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || new Response(JSON.stringify({ offline: true }), { headers: { 'Content-Type': 'application/json' } })))
+        .catch(() => caches.match(request).then((cached) => cached || new Response(JSON.stringify({ message: 'Hors ligne / serveur injoignable' }), { status: 503, headers: { 'Content-Type': 'application/json' } })))
     );
     return;
   }

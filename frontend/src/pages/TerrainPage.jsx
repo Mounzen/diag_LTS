@@ -37,16 +37,17 @@ export default function TerrainPage({ user }) {
     Promise.all([api.meta(), api.secteurs(), api.diagnostics(), api.lts()])
       .then(([metaResult, secteursResult, diagnosticsResult, ltsResult]) => {
         setMeta(metaResult);
-        setSecteurs(secteursResult);
-        setDiagnostics(diagnosticsResult);
-        setAllLts(ltsResult || []);
+        // Garde-fous : on force des tableaux pour ne jamais planter sur .map/.filter
+        setSecteurs(Array.isArray(secteursResult) ? secteursResult : []);
+        setDiagnostics(Array.isArray(diagnosticsResult) ? diagnosticsResult : []);
+        setAllLts(Array.isArray(ltsResult) ? ltsResult : []);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { api.lts(filters.secteur).then(setLts).catch((err) => setError(err.message)); }, [filters.secteur]);
-  useEffect(() => { api.logements(filters).then(setLogements).catch((err) => setError(err.message)); }, [filters]);
+  useEffect(() => { api.lts(filters.secteur).then((r) => setLts(Array.isArray(r) ? r : [])).catch((err) => setError(err.message)); }, [filters.secteur]);
+  useEffect(() => { api.logements(filters).then((r) => setLogements(Array.isArray(r) ? r : [])).catch((err) => setError(err.message)); }, [filters]);
   useEffect(() => {
     if (!selected) return;
     setDetailLoading(true);

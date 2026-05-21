@@ -56,7 +56,9 @@ export default function MapPage({ user }) {
   async function loadData() {
     try {
       const result = await api.logementsWithCoords();
-      setData(result);
+      // Garde-fou : ne mettre à jour que si la réponse a bien la forme attendue
+      // (évite de planter le rendu si le backend renvoie une erreur / réponse hors-ligne)
+      if (result && Array.isArray(result.logements)) setData(result);
     } catch (err) {
       console.error(err);
     }
