@@ -862,6 +862,19 @@ th { color: #667085; font-size: 13px; }
   .terrainStep-diagnostic .terrainDetailPane {
     display: block;
   }
+  /* Téléphone : fiche logement + diagnostic en pleine largeur (vision plus large) */
+  .terrainStep-detail .terrainDetailPane > .panel,
+  .terrainStep-detail .terrainDetailPane > .detailPanel,
+  .terrainStep-detail .terrainDetailPane > .signaturesPanel,
+  .terrainStep-diagnostic .terrainDetailPane > .panel,
+  .terrainStep-diagnostic .terrainDetailPane > .detailPanel,
+  .terrainStep-diagnostic .terrainDetailPane > .signaturesPanel {
+    margin-left: -12px;
+    margin-right: -12px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
   .mobileList {
     max-height: none;
     overflow: visible;
@@ -952,6 +965,21 @@ th { color: #667085; font-size: 13px; }
   }
   .panel {
     padding: 14px;
+  }
+  /* Aligne la pleine largeur sur le padding réduit du contenu (10px) sur petit écran */
+  .terrainStep-detail .terrainDetailPane > .panel,
+  .terrainStep-detail .terrainDetailPane > .detailPanel,
+  .terrainStep-detail .terrainDetailPane > .signaturesPanel,
+  .terrainStep-diagnostic .terrainDetailPane > .panel,
+  .terrainStep-diagnostic .terrainDetailPane > .detailPanel,
+  .terrainStep-diagnostic .terrainDetailPane > .signaturesPanel {
+    margin-left: -10px;
+    margin-right: -10px;
+  }
+  /* Diagnostic : padding latéral réduit pour élargir le tableau sur petit écran */
+  .terrainStep-diagnostic .terrainDetailPane > .editor {
+    padding-left: 8px;
+    padding-right: 8px;
   }
   .sectionTitle {
     gap: 10px;
