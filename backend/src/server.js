@@ -167,8 +167,87 @@ async function backupDbIfNeeded() {
   }
 }
 
+// === Phase 1 migration : persistance dans Postgres (table app_state) ===
+// Une seule ligne (id = 1) contient tout l'état applicatif en colonne jsonb.
+// Gain vs blob Storage : écriture transactionnelle atomique (jamais de fichier
+// tronqué) et durabilité ACID. Utilise le client Supabase déjà configuré, donc
+// AUCUN nouveau secret. Pré-requis : table créée côté Supabase (voir doc migration).
+const APP_STATE_ID = 1;
+let pgSyncInProgress = false;
+let pgSyncQueued = false;
+
+async function loadDbFromPostgres() {
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase
+      .from('app_state')
+      .select('data')
+      .eq('id', APP_STATE_ID)
+      .limit(1);
+    if (error) {
+      console.warn('[DB/PG] Lecture app_state impossible (table absente ?) :', error.message);
+      return false;
+    }
+    const row = Array.isArray(data) ? data[0] : null;
+    if (!row || !row.data) {
+      console.log('[DB/PG] Table app_state vide, pas de version Postgres');
+      return false;
+    }
+    const remoteDb = row.data;
+    const remoteLogements = Array.isArray(remoteDb.logements) ? remoteDb.logements.length : 0;
+    let localLogements = 0;
+    if (fs.existsSync(dbPath)) {
+      try {
+        const localDb = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
+        localLogements = Array.isArray(localDb.logements) ? localDb.logements.length : 0;
+      } catch {}
+    }
+    // Garde-fou identique au blob : refuse une version Postgres anormalement pauvre
+    if (remoteLogements === 0 || (localLogements > 0 && remoteLogements < localLogements * 0.5)) {
+      console.warn(`[DB/PG] ⚠ Version Postgres suspecte (${remoteLogements} logements vs ${localLogements} en local), ignorée`);
+      return false;
+    }
+    fs.writeFileSync(dbPath, JSON.stringify(remoteDb, null, 2), 'utf-8');
+    reloadDb(); // invalide le cache mémoire pour repartir sur la version Postgres
+    console.log(`[DB/PG] ✓ Restauré depuis Postgres: ${remoteLogements} logements`);
+    return true;
+  } catch (err) {
+    console.error('[DB/PG] Erreur restauration Postgres:', err.message);
+    return false;
+  }
+}
+
+async function syncDbToPostgres(db) {
+  if (!supabase) return;
+  if (pgSyncInProgress) {
+    pgSyncQueued = true;
+    return;
+  }
+  pgSyncInProgress = true;
+  try {
+    const { error } = await supabase
+      .from('app_state')
+      .upsert({ id: APP_STATE_ID, data: db, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    if (error) throw error;
+  } catch (err) {
+    console.error('[DB/PG] échec upsert app_state:', err.message);
+  } finally {
+    pgSyncInProgress = false;
+    if (pgSyncQueued) {
+      pgSyncQueued = false;
+      setImmediate(() => syncDbToPostgres(loadDb()));
+    }
+  }
+}
+
+// Persistance combinée : Postgres = source de vérité (Phase 1), Storage = miroir
+// de secours pendant la transition (retiré en Phase 3). Chacun gère son garde-fou.
+function persistDb(db) {
+  return Promise.allSettled([syncDbToPostgres(db), syncDbToSupabase(db)]);
+}
+
 // Enregistrer le callback de sync sur chaque saveDb
-setSaveCallback(syncDbToSupabase);
+setSaveCallback(persistDb);
 
 
 const DIAGNOSTIC_TEMPLATE = [
@@ -2740,8 +2819,15 @@ app.use((error, req, res, next) => {
 // Démarrage : on attend la restauration Supabase AVANT d'accepter des requêtes
 async function startServer() {
   if (supabase) {
-    console.log('[DB] Tentative de restauration depuis Supabase...');
-    await loadDbFromSupabase();
+    console.log('[DB] Restauration : Postgres (app_state) en priorité...');
+    const fromPg = await loadDbFromPostgres();
+    if (!fromPg) {
+      // Première bascule ou Postgres vide : on amorce depuis l'ancien stockage Storage,
+      // puis on initialise app_state avec la meilleure version disponible.
+      console.log('[DB] Postgres vide → amorçage depuis Storage puis init de app_state');
+      await loadDbFromSupabase();
+      await syncDbToPostgres(loadDb());
+    }
   }
   app.listen(PORT, () => console.log(`DIAG-LTS API sur http://localhost:${PORT}`));
 }
