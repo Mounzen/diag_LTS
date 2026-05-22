@@ -351,6 +351,22 @@ function normalizeStatutDiagnostic(value) {
   return STATUTS_DIAGNOSTIC.some((statut) => statut.value === normalized) ? normalized : 'brouillon_agent';
 }
 
+// Phase 2 — Tranche 1 : écriture du journal d'audit dans une table Postgres dédiée
+// (best-effort, fire-and-forget) au lieu de gonfler le bloc db gardé en mémoire.
+function insertJournalToPg(entry) {
+  if (!supabase) return;
+  supabase.from('journal_actions').insert({
+    id: entry.id,
+    date: entry.date,
+    action: entry.action || null,
+    logement_id: entry.logementId || entry.logement_id || null,
+    agent_id: entry.agentId || entry.userId || null,
+    data: entry
+  }).then(({ error }) => {
+    if (error) console.error('[Journal/PG] insert échec:', error.message);
+  }, (err) => console.error('[Journal/PG] insert échec:', err.message));
+}
+
 function appendJournal(db, action, details = {}) {
   const now = new Date();
   const entry = {
@@ -363,10 +379,8 @@ function appendJournal(db, action, details = {}) {
     commentaire: details.commentaire || '',
     ...details
   };
-  db.journalActions ||= [];
-  db.historique_actions ||= [];
-  db.journalActions.push(entry);
-  db.historique_actions.push(entry);
+  // Le journal ne s'accumule plus dans le bloc db (mémoire) → table Postgres.
+  insertJournalToPg(entry);
   return entry;
 }
 
@@ -1926,9 +1940,27 @@ app.get('/api/archive/logement/:id/historique', (req, res) => {
 // Audit log
 // ============================================================================
 
-app.get('/api/audit', (req, res) => {
+app.get('/api/audit', async (req, res) => {
   const db = loadDb();
-  let entries = [...(db.journalActions || []), ...(db.historique_actions || [])];
+  // Source principale : table Postgres journal_actions (Phase 2). On récupère les
+  // 2000 dernières entrées puis on applique le filtrage existant en JS (inchangé).
+  let pgEntries = [];
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('journal_actions')
+        .select('data')
+        .order('date', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      pgEntries = (data || []).map((r) => r.data).filter(Boolean);
+    } catch (e) {
+      console.error('[Journal/PG] lecture échec:', e.message);
+    }
+  }
+  // Transition : on fusionne aussi les anciennes entrées encore dans le bloc
+  // (avant migration). Le dédoublonnage par id gère le recouvrement.
+  let entries = [...pgEntries, ...(db.journalActions || []), ...(db.historique_actions || [])];
   // Dédoublonner par id
   const seen = new Set();
   entries = entries.filter((e) => {
@@ -1953,6 +1985,42 @@ app.get('/api/audit', (req, res) => {
     actions: [...new Set(entries.map((e) => e.action).filter(Boolean))].sort(),
     entries: entries.slice(0, limit)
   });
+});
+
+// Migration unique : déplace les entrées de journal existantes (bloc db) vers la
+// table Postgres, puis vide le bloc. Idempotent (upsert par id) → relançable sans risque.
+app.post('/api/admin/migrate-journal', async (req, res, next) => {
+  try {
+    if (!supabase) return res.status(503).json({ message: 'Supabase non configuré' });
+    const db = loadDb();
+    const legacy = [...(db.journalActions || []), ...(db.historique_actions || [])];
+    const seen = new Set();
+    const rows = [];
+    for (const e of legacy) {
+      if (!e || !e.id || seen.has(e.id)) continue;
+      seen.add(e.id);
+      rows.push({
+        id: e.id,
+        date: e.date || new Date().toISOString(),
+        action: e.action || null,
+        logement_id: e.logementId || e.logement_id || null,
+        agent_id: e.agentId || e.userId || null,
+        data: e
+      });
+    }
+    let inserted = 0;
+    for (let i = 0; i < rows.length; i += 500) {
+      const batch = rows.slice(i, i + 500);
+      const { error } = await supabase.from('journal_actions').upsert(batch, { onConflict: 'id' });
+      if (error) throw error;
+      inserted += batch.length;
+    }
+    // Vide le bloc en mémoire (gain mémoire) et persiste
+    db.journalActions = [];
+    db.historique_actions = [];
+    saveDb(db);
+    res.json({ ok: true, migrated: inserted });
+  } catch (err) { next(err); }
 });
 
 // ============================================================================
