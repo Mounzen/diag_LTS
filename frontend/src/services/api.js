@@ -90,6 +90,8 @@ export const api = {
   logements: (params = {}) => request(`/api/logements${qs(params)}`),
   logement: (id) => request(`/api/logements/${encodeURIComponent(id)}`),
   createLogement: (payload) => request('/api/logements', { method: 'POST', body: JSON.stringify(payload) }),
+  cdpgfUrl: (id) => exportUrl(`/api/exports/cdpgf/logement/${encodeURIComponent(id)}.xlsx`),
+  ficheTracabiliteUrl: (id) => exportUrl(`/api/exports/fiche-tracabilite/logement/${encodeURIComponent(id)}.docx`),
   updatePatrimoine: (id, payload) => request(`/api/logements/${encodeURIComponent(id)}/patrimoine`, { method: 'PUT', body: JSON.stringify(payload) }),
   logementConfiguration: (id) => request(`/api/logements/${encodeURIComponent(id)}/configuration`),
   updateLogementConfiguration: (id, payload) => request(`/api/logements/${encodeURIComponent(id)}/configuration`, { method: 'PUT', body: JSON.stringify(payload) }),

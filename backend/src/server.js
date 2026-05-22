@@ -20,13 +20,15 @@ import {
   createDefaultConfiguration,
   createPiece
 } from '../config/configurationLogement.js';
-import { ensureDataDirectories, loadDb, reloadDb, loadReferentiel, saveDb, setSaveCallback, uploadDir, dbPath } from './services/storeService.js';
+import { ensureDataDirectories, loadDb, reloadDb, loadReferentiel, saveDb, setSaveCallback, uploadDir, dbPath, root } from './services/storeService.js';
 import { redigerSyntheseExecutive } from './services/aiRedactionService.js';
 import { generateLogementPdf } from './services/pdfReportService.js';
 import { authRoutes } from './routes/authRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
 import { createClient } from '@supabase/supabase-js';
 import WebSocket from 'ws';
+import ExcelJS from 'exceljs';
+import PizZip from 'pizzip';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -3014,6 +3016,97 @@ app.get('/api/exports/logement/:id.pdf.pro', async (req, res, next) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="rapport-${logement.code_acces}.pdf"`);
     res.send(buffer);
+  } catch (err) { next(err); }
+});
+
+// ============================================================================
+// Documents format mairie : devis CDPGF (.xlsx) + fiche traçabilité (.docx)
+// Générés depuis les gabarits fournis (logo/écritures préservés), préremplis
+// depuis le diagnostic, et restant des vrais fichiers Office MODIFIABLES à la main.
+// ============================================================================
+const TEMPLATES_DIR = path.join(root, 'templates');
+const ETATS_TRAVAUX = ['degrade', 'tres_degrade', 'dangereux', 'moyen'];
+
+function itemsTravaux(diagnostic) {
+  return (diagnostic?.items || []).filter((it) => ETATS_TRAVAUX.includes(String(it.etat || '').toLowerCase()));
+}
+
+function cdpgfDesignation(it) {
+  const base = it.travauxProposes || it.posteTravaux || it.element || it.item || '';
+  const extra = [];
+  if (it.hauteur && it.largeur) extra.push(`${it.hauteur}x${it.largeur} cm`);
+  if (it.materiau) extra.push(it.materiau);
+  if (it.commentaire) extra.push(it.commentaire);
+  const z = it.zone || '';
+  let txt = String(base);
+  if (extra.length) txt += ' — ' + extra.join(' · ');
+  return (z && !txt.startsWith(z)) ? `${z} : ${txt}` : txt;
+}
+
+function montantEstime(diagnostic) {
+  let m = Number(diagnostic?.coutTotal || diagnostic?.cout_total_estime || 0);
+  if (!m) m = (diagnostic?.items || []).reduce((s, it) => s + Number(it.coutEstimatif || it.coutMoyen || 0), 0);
+  return Math.round(m);
+}
+
+// Devis CDPGF (.xlsx) — désignations issues du diagnostic, prix laissés vides
+app.get('/api/exports/cdpgf/logement/:id.xlsx', async (req, res, next) => {
+  try {
+    const db = loadDb();
+    const logement = db.logements.find((l) => l.id === req.params.id);
+    if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+    const latest = latestDiagnosticForLogement(db, logement.id);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(path.join(TEMPLATES_DIR, 'CDPGF_template.xlsx'));
+    const ws = wb.getWorksheet('CDPGF') || wb.worksheets[0];
+    ws.getCell('A6').value = `LOGEMENT LTS ${logement.nom_lts || ''}\nN° ${logement.adresse || ''}\n`;
+    const items = itemsTravaux(latest);
+    const START = 11, MAXR = 24;
+    items.slice(0, MAXR).forEach((it, i) => {
+      const r = START + i;
+      ws.getCell(`A${r}`).value = i + 1;
+      ws.getCell(`B${r}`).value = cdpgfDesignation(it);
+      ws.getCell(`C${r}`).value = it.unite || 'forfait';
+      ws.getCell(`D${r}`).value = it.quantite || 1;
+    });
+    for (let r = START + Math.min(items.length, MAXR); r < START + MAXR; r++) {
+      ['A', 'B', 'C', 'D', 'E', 'F'].forEach((c) => { ws.getCell(`${c}${r}`).value = null; });
+    }
+    const buf = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="CDPGF-${logement.code_acces}.xlsx"`);
+    res.send(Buffer.from(buf));
+  } catch (err) { next(err); }
+});
+
+// Fiche traçabilité (.docx) — préremplie depuis le diagnostic (placeholders {{...}})
+app.get('/api/exports/fiche-tracabilite/logement/:id.docx', (req, res, next) => {
+  try {
+    const db = loadDb();
+    const logement = db.logements.find((l) => l.id === req.params.id);
+    if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
+    const latest = latestDiagnosticForLogement(db, logement.id);
+    const montant = montantEstime(latest);
+    const tva = Math.round(montant * 0.021 * 100) / 100;
+    const ttc = Math.round((montant + tva) * 100) / 100;
+    const dev = (db.devis || []).find((d) => d.logementId === logement.id);
+    const entreprise = (dev && dev.entrepriseNom) || 'À CONSULTER';
+    const description = `TRAVAUX D'ENTRETIEN ET DE RÉPARATION ${logement.adresse || ''} LTS ${logement.nom_lts || ''}`;
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const content = fs.readFileSync(path.join(TEMPLATES_DIR, 'Fiche_template.docx'));
+    const zip = new PizZip(content);
+    let xml = zip.file('word/document.xml').asText();
+    xml = xml.split('{{DESCRIPTION}}').join(esc(description))
+             .split('{{MONTANT}}').join(String(montant))
+             .split('{{TVA}}').join(tva.toFixed(2))
+             .split('{{TTC}}').join(ttc.toFixed(2))
+             .split('{{ENTREPRISE}}').join(esc(entreprise));
+    zip.file('word/document.xml', xml);
+    const buf = zip.generate({ type: 'nodebuffer' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="fiche-tracabilite-${logement.code_acces}.docx"`);
+    res.send(buf);
   } catch (err) { next(err); }
 });
 
