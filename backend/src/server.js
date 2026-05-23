@@ -22,6 +22,7 @@ import {
 } from '../config/configurationLogement.js';
 import { ensureDataDirectories, loadDb, reloadDb, loadReferentiel, saveDb, setSaveCallback, uploadDir, dbPath, root } from './services/storeService.js';
 import * as logementsRepo from './services/logementsRepository.js';
+import * as diagnosticsRepo from './services/diagnosticsRepository.js';
 import { redigerSyntheseExecutive } from './services/aiRedactionService.js';
 import { generateLogementPdf } from './services/pdfReportService.js';
 import { authRoutes } from './routes/authRoutes.js';
@@ -379,6 +380,14 @@ function upsertLogementToPg(logement) {
   logementsRepo.upsertLogement(supabase, logement).then(({ ok, error }) => {
     if (!ok && error) console.error('[Logements/PG] upsert échec:', error);
   }, (err) => console.error('[Logements/PG] upsert échec:', err.message));
+}
+
+// Miroir best-effort des écritures de diagnostic vers la table dédiée (par ligne).
+function upsertDiagnosticToPg(diagnostic) {
+  if (!supabase || !diagnostic?.id) return;
+  diagnosticsRepo.upsertDiagnostic(supabase, diagnostic).then(({ ok, error }) => {
+    if (!ok && error) console.error('[Diagnostics/PG] upsert échec:', error);
+  }, (err) => console.error('[Diagnostics/PG] upsert échec:', err.message));
 }
 
 function appendJournal(db, action, details = {}) {
@@ -1212,6 +1221,7 @@ app.post('/api/diagnostics', (req, res, next) => {
     db.diagnostics.push(diagnostic);
     if (!['brouillon_agent', 'a_verifier_responsable'].includes(diagnostic.statut)) recalculateConsolidations(db, diagnostic);
     saveDb(db);
+    upsertDiagnosticToPg(diagnostic);
     res.status(201).json(diagnostic);
   } catch (error) {
     next(error);
@@ -1242,6 +1252,7 @@ app.put('/api/diagnostics/:id', (req, res, next) => {
     db.diagnostics[index] = diagnostic;
     recalculateConsolidations(db, diagnostic);
     saveDb(db);
+    upsertDiagnosticToPg(diagnostic);
     res.json(diagnostic);
   } catch (error) {
     next(error);
@@ -1281,6 +1292,7 @@ app.post('/api/diagnostics/:id/validate', (req, res, next) => {
     db.diagnostics[index] = diagnostic;
     recalculateConsolidations(db, diagnostic);
     saveDb(db);
+    upsertDiagnosticToPg(diagnostic);
     res.json(diagnostic);
   } catch (error) {
     next(error);
@@ -2976,6 +2988,7 @@ app.post('/api/diagnostics/:id/signature', async (req, res, next) => {
       contentHash
     });
     saveDb(db);
+    upsertDiagnosticToPg(diagnostic);
     res.status(201).json(signature);
   } catch (err) { next(err); }
 });
@@ -2998,6 +3011,7 @@ app.delete('/api/diagnostics/:id/signature/:sigId', (req, res) => {
     agentId: req.body?.agentId || null
   });
   saveDb(db);
+  upsertDiagnosticToPg(diagnostic);
   res.json({ ok: true });
 });
 
@@ -3163,6 +3177,18 @@ async function startServer() {
         console.log(`[Logements/PG] table logements déjà peuplée (${n} lignes)`);
       }
     } catch (err) { console.error('[Logements/PG] backfill ignoré:', err.message); }
+  }
+  // Backfill initial des diagnostics depuis le blob si la table est vide.
+  if (supabase) {
+    try {
+      const n = await diagnosticsRepo.countDiagnostics(supabase);
+      if (n === 0) {
+        const r = await diagnosticsRepo.backfillDiagnostics(supabase, loadDb().diagnostics || []);
+        console.log(`[Diagnostics/PG] backfill initial: ${r.count} diagnostics`);
+      } else if (n != null) {
+        console.log(`[Diagnostics/PG] table diagnostics déjà peuplée (${n} lignes)`);
+      }
+    } catch (err) { console.error('[Diagnostics/PG] backfill ignoré:', err.message); }
   }
   app.listen(PORT, () => console.log(`DIAG-LTS API sur http://localhost:${PORT}`));
 }
