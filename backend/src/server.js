@@ -23,6 +23,10 @@ import {
 import { ensureDataDirectories, loadDb, reloadDb, loadReferentiel, saveDb, setSaveCallback, uploadDir, dbPath, root } from './services/storeService.js';
 import * as logementsRepo from './services/logementsRepository.js';
 import * as diagnosticsRepo from './services/diagnosticsRepository.js';
+import * as devisRepo from './services/devisRepository.js';
+import * as photosRepo from './services/photosRepository.js';
+import * as piecesRepo from './services/piecesRepository.js';
+import * as interventionsRepo from './services/interventionsRepository.js';
 import { redigerSyntheseExecutive } from './services/aiRedactionService.js';
 import { generateLogementPdf } from './services/pdfReportService.js';
 import { authRoutes } from './routes/authRoutes.js';
@@ -389,6 +393,14 @@ function upsertDiagnosticToPg(diagnostic) {
     if (!ok && error) console.error('[Diagnostics/PG] upsert échec:', error);
   }, (err) => console.error('[Diagnostics/PG] upsert échec:', err.message));
 }
+
+// Miroirs best-effort des collections secondaires (Phase 2 dual-write).
+function upsertDevisToPg(devis) { if (!supabase || !devis?.id) return; devisRepo.upsertDevis(supabase, devis).then(({ ok, error }) => { if (!ok && error) console.error('[Devis/PG] upsert:', error); }, (e) => console.error('[Devis/PG] upsert:', e.message)); }
+function deleteDevisFromPg(id) { if (!supabase || !id) return; devisRepo.deleteDevis(supabase, id).then(({ ok, error }) => { if (!ok && error) console.error('[Devis/PG] delete:', error); }, (e) => console.error('[Devis/PG] delete:', e.message)); }
+function upsertPhotoToPg(photo) { if (!supabase || !photo?.id) return; photosRepo.upsertPhoto(supabase, photo).then(({ ok, error }) => { if (!ok && error) console.error('[Photos/PG] upsert:', error); }, (e) => console.error('[Photos/PG] upsert:', e.message)); }
+function upsertPieceToPg(piece) { if (!supabase || !piece?.id) return; piecesRepo.upsertPiece(supabase, piece).then(({ ok, error }) => { if (!ok && error) console.error('[Pieces/PG] upsert:', error); }, (e) => console.error('[Pieces/PG] upsert:', e.message)); }
+function upsertInterventionToPg(intervention) { if (!supabase || !intervention?.id) return; interventionsRepo.upsertIntervention(supabase, intervention).then(({ ok, error }) => { if (!ok && error) console.error('[Interventions/PG] upsert:', error); }, (e) => console.error('[Interventions/PG] upsert:', e.message)); }
+function deleteInterventionFromPg(id) { if (!supabase || !id) return; interventionsRepo.deleteIntervention(supabase, id).then(({ ok, error }) => { if (!ok && error) console.error('[Interventions/PG] delete:', error); }, (e) => console.error('[Interventions/PG] delete:', e.message)); }
 
 function appendJournal(db, action, details = {}) {
   const now = new Date();
@@ -1124,6 +1136,7 @@ app.post('/api/logements/:id/pieces', (req, res) => {
     nouvelleValeur: piece
   });
   saveDb(db);
+  upsertPieceToPg(piece);
   res.status(201).json(piece);
 });
 
@@ -1144,6 +1157,7 @@ app.put('/api/logements/:id/pieces/:pieceId', (req, res) => {
     agentNom: req.body.agentNom || ''
   });
   saveDb(db);
+  upsertPieceToPg(db.pieces_logement[index]);
   res.json(db.pieces_logement[index]);
 });
 
@@ -1337,6 +1351,7 @@ app.post('/api/uploads', upload.single('photo'), async (req, res, next) => {
     }
   }
   saveDb(db);
+  upsertPhotoToPg(photo);
   res.status(201).json(photo);
   } catch (err) { next(err); }
 });
@@ -1365,6 +1380,7 @@ app.delete('/api/uploads/:id', async (req, res, next) => {
     }
     if (photo.filename) await removeUploadedFile(photo.filename);
     saveDb(db);
+    upsertPhotoToPg(photo);
     res.json({ ok: true, photo });
   } catch (err) { next(err); }
 });
@@ -1817,6 +1833,7 @@ app.post('/api/devis', (req, res) => {
   db.devis.push(devis);
   appendJournal(db, 'devis_cree', { devisId: devis.id, logementId: logement.id, entreprise: devis.entrepriseNom });
   saveDb(db);
+  upsertDevisToPg(devis);
   res.status(201).json(devis);
 });
 
@@ -1838,6 +1855,7 @@ app.put('/api/devis/:id', (req, res) => {
   }
   devis.updatedAt = new Date().toISOString();
   saveDb(db);
+  upsertDevisToPg(devis);
   res.json(devis);
 });
 
@@ -1850,6 +1868,7 @@ app.delete('/api/devis/:id', async (req, res, next) => {
     if (removed.pdfFilename) await removeUploadedFile(removed.pdfFilename);
     appendJournal(db, 'devis_supprime', { devisId: removed.id });
     saveDb(db);
+    deleteDevisFromPg(removed.id);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -1872,6 +1891,7 @@ app.post('/api/devis/:id/upload', upload.single('devisPdf'), async (req, res, ne
     devis.updatedAt = new Date().toISOString();
     appendJournal(db, 'devis_pdf_upload', { devisId: devis.id, filename: stored.filename });
     saveDb(db);
+    upsertDevisToPg(devis);
     res.json(devis);
   } catch (err) { next(err); }
 });
@@ -1888,6 +1908,7 @@ app.delete('/api/devis/:id/upload', async (req, res, next) => {
     devis.updatedAt = new Date().toISOString();
     appendJournal(db, 'devis_pdf_supprime', { devisId: devis.id });
     saveDb(db);
+    upsertDevisToPg(devis);
     res.json(devis);
   } catch (err) { next(err); }
 });
@@ -2149,6 +2170,7 @@ app.post('/api/interventions', (req, res) => {
   db.interventions.push(intervention);
   appendJournal(db, 'intervention_cree', { interventionId: intervention.id, logementId: logement.id });
   saveDb(db);
+  upsertInterventionToPg(intervention);
   res.status(201).json(intervention);
 });
 
@@ -2168,6 +2190,7 @@ app.put('/api/interventions/:id', (req, res) => {
   }
   intervention.updatedAt = new Date().toISOString();
   saveDb(db);
+  upsertInterventionToPg(intervention);
   res.json(intervention);
 });
 
@@ -2178,6 +2201,7 @@ app.delete('/api/interventions/:id', (req, res) => {
   const [removed] = db.interventions.splice(idx, 1);
   appendJournal(db, 'intervention_supprimee', { interventionId: removed.id });
   saveDb(db);
+  deleteInterventionFromPg(removed.id);
   res.json({ ok: true });
 });
 
@@ -2211,6 +2235,8 @@ app.post('/api/interventions/:id/photos', upload.single('photo'), async (req, re
     intervention.updatedAt = new Date().toISOString();
     appendJournal(db, 'intervention_photo_ajoutee', { interventionId: intervention.id, phase, photoId: photo.id });
     saveDb(db);
+    upsertInterventionToPg(intervention);
+    upsertPhotoToPg(photo);
     res.status(201).json({ intervention, photo });
   } catch (err) { next(err); }
 });
@@ -3189,6 +3215,16 @@ async function startServer() {
         console.log(`[Diagnostics/PG] table diagnostics déjà peuplée (${n} lignes)`);
       }
     } catch (err) { console.error('[Diagnostics/PG] backfill ignoré:', err.message); }
+  }
+  // Backfill initial des collections secondaires depuis le blob si tables vides.
+  if (supabase) {
+    try {
+      const db0 = loadDb();
+      if (await devisRepo.countDevis(supabase) === 0) { const r = await devisRepo.backfillDevis(supabase, db0.devis || []); console.log(`[Devis/PG] backfill: ${r.count}`); }
+      if (await photosRepo.countPhotos(supabase) === 0) { const r = await photosRepo.backfillPhotos(supabase, db0.photos || []); console.log(`[Photos/PG] backfill: ${r.count}`); }
+      if (await piecesRepo.countPieces(supabase) === 0) { const r = await piecesRepo.backfillPieces(supabase, db0.pieces_logement || []); console.log(`[Pieces/PG] backfill: ${r.count}`); }
+      if (await interventionsRepo.countInterventions(supabase) === 0) { const r = await interventionsRepo.backfillInterventions(supabase, db0.interventions || []); console.log(`[Interventions/PG] backfill: ${r.count}`); }
+    } catch (err) { console.error('[Secondaires/PG] backfill ignoré:', err.message); }
   }
   app.listen(PORT, () => console.log(`DIAG-LTS API sur http://localhost:${PORT}`));
 }
