@@ -1,3 +1,4 @@
+import { toast } from '../services/toast';
 import React, { useEffect, useState } from 'react';
 import { Archive, ChevronLeft, History, RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
@@ -49,7 +50,7 @@ export default function ArchivePage({ user }) {
       const json = await api.archiveHistorique(logementId);
       setHistorique(json);
     } catch (err) {
-      alert('Erreur : ' + err.message);
+      toast.error('Erreur : ' + err.message);
     }
   }
 

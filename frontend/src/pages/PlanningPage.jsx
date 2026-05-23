@@ -1,3 +1,4 @@
+import { toast } from '../services/toast';
 import React, { useEffect, useState, useMemo } from 'react';
 import { CalendarClock, FileText, Paperclip, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { api, assetUrl } from '../services/api';
@@ -76,7 +77,7 @@ export default function PlanningPage({ user }) {
       await api.updateDevis(devis.id, { statut: newStatut });
       await load();
     } catch (err) {
-      alert('Erreur : ' + err.message);
+      toast.error('Erreur : ' + err.message);
     }
   }
 
@@ -86,21 +87,21 @@ export default function PlanningPage({ user }) {
       await api.deleteDevis(devis.id);
       await load();
     } catch (err) {
-      alert('Erreur : ' + err.message);
+      toast.error('Erreur : ' + err.message);
     }
   }
 
   async function uploadPdf(devis, file) {
     if (!file) return;
     if (file.size > 15 * 1024 * 1024) {
-      alert('Fichier trop volumineux (max 15 Mo).');
+      toast.warning('Fichier trop volumineux (max 15 Mo).');
       return;
     }
     try {
       await api.uploadDevisPdf(devis.id, file);
       await load();
     } catch (err) {
-      alert('Erreur upload : ' + err.message);
+      toast.error('Erreur upload : ' + err.message);
     }
   }
 
@@ -110,13 +111,13 @@ export default function PlanningPage({ user }) {
       await api.deleteDevisPdf(devis.id);
       await load();
     } catch (err) {
-      alert('Erreur : ' + err.message);
+      toast.error('Erreur : ' + err.message);
     }
   }
 
   function startCreate() {
     if (!selectedLogement) {
-      alert('Sélectionne d\'abord un logement.');
+      toast.warning('Sélectionne d\'abord un logement.');
       return;
     }
     setShowCreate(true);

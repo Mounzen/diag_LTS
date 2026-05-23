@@ -1,3 +1,4 @@
+import { toast } from '../services/toast';
 import React, { useEffect, useRef, useState } from 'react';
 import { MapPinned, Navigation, RefreshCw, Crosshair } from 'lucide-react';
 import { api } from '../services/api';
@@ -84,7 +85,7 @@ export default function MapPage({ user }) {
       }, 5000);
       setTimeout(() => clearInterval(poll), 120000); // arrêt poll après 2 min max
     } catch (err) {
-      alert('Erreur : ' + err.message);
+      toast.error('Erreur : ' + err.message);
     }
   }
 
@@ -95,9 +96,9 @@ export default function MapPage({ user }) {
       const r = await api.recalerLts();
       await loadData();
       await loadStatus();
-      alert(`Recalage terminé : ${r.recales} logement(s) repositionné(s) sur ${r.totalLts} LTS.`);
+      toast.success(`Recalage terminé : ${r.recales} logement(s) repositionné(s) sur ${r.totalLts} LTS.`);
     } catch (err) {
-      alert('Erreur : ' + err.message);
+      toast.error('Erreur : ' + err.message);
     } finally {
       setRecalageBusy(false);
     }
