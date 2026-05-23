@@ -1,3 +1,4 @@
+import { confirmDialog } from '../services/confirm';
 import { toast } from '../services/toast';
 import React, { useEffect, useState, useMemo } from 'react';
 import { CalendarClock, FileText, Paperclip, Plus, RefreshCw, Trash2, X } from 'lucide-react';
@@ -82,7 +83,7 @@ export default function PlanningPage({ user }) {
   }
 
   async function remove(devis) {
-    if (!confirm(`Supprimer le devis ${devis.entrepriseNom} - ${formatMontant(devis.montantTTC)} ?`)) return;
+    if (!(await confirmDialog(`Supprimer le devis ${devis.entrepriseNom} - ${formatMontant(devis.montantTTC)} ?`, { danger: true, confirmLabel: 'Supprimer' }))) return;
     try {
       await api.deleteDevis(devis.id);
       await load();
@@ -106,7 +107,7 @@ export default function PlanningPage({ user }) {
   }
 
   async function removePdf(devis) {
-    if (!confirm(`Supprimer le PDF joint au devis ${devis.entrepriseNom} ?`)) return;
+    if (!(await confirmDialog(`Supprimer le PDF joint au devis ${devis.entrepriseNom} ?`, { danger: true, confirmLabel: 'Supprimer' }))) return;
     try {
       await api.deleteDevisPdf(devis.id);
       await load();

@@ -10,6 +10,7 @@ import AuditPage from './pages/AuditPage';
 import ImpactPage from './pages/ImpactPage';
 import MapPage from './pages/MapPage';
 import Toaster from './components/Toaster';
+import ConfirmDialog from './components/ConfirmDialog';
 
 export default function App() {
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('diag_lts_agent') || 'null'));
@@ -26,7 +27,7 @@ export default function App() {
     setPage('terrain');
   }
 
-  if (!user) return (<><LoginPage onLogin={login} /><Toaster /></>);
+  if (!user) return (<><LoginPage onLogin={login} /><Toaster /><ConfirmDialog /></>);
 
   return (
     <>
@@ -41,6 +42,7 @@ export default function App() {
       {page === 'map' && <MapPage user={user} />}
     </Layout>
     <Toaster />
+    <ConfirmDialog />
     </>
   );
 }

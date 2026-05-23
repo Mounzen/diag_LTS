@@ -1507,3 +1507,12 @@ form, .diagItem {
 @media (max-width: 600px) {
   .toaster { left: 12px; right: 12px; bottom: 12px; max-width: none; }
 }
+
+/* === Boîte de confirmation maison (remplace window.confirm) === */
+.confirmCard { max-width: 440px; }
+.confirmTitle { margin: 0 0 8px; font-size: 17px; font-weight: 800; color: #142033; }
+.confirmMessage { margin: 0 0 20px; color: #475467; font-size: 14px; line-height: 1.45; white-space: pre-line; }
+.confirmActions { display: flex; gap: 10px; justify-content: flex-end; }
+.confirmActions button { min-width: 110px; }
+.confirmDanger { background: var(--red); color: #fff; }
+.confirmDanger:hover { filter: brightness(.95); }

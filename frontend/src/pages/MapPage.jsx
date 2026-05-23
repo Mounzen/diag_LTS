@@ -1,3 +1,4 @@
+import { confirmDialog } from '../services/confirm';
 import { toast } from '../services/toast';
 import React, { useEffect, useRef, useState } from 'react';
 import { MapPinned, Navigation, RefreshCw, Crosshair } from 'lucide-react';
@@ -90,7 +91,7 @@ export default function MapPage({ user }) {
   }
 
   async function recalerLts() {
-    if (!window.confirm('Recaler les logements mal placés sur le centre de leur LTS ?\n\nLes logements aberrants ou sans coordonnées seront regroupés autour de leur résidence (LTS). Les logements déjà bien placés ne bougent pas.')) return;
+    if (!(await confirmDialog('Recaler les logements mal placés sur le centre de leur LTS ?\n\nLes logements aberrants ou sans coordonnées seront regroupés autour de leur résidence (LTS). Les logements déjà bien placés ne bougent pas.', { confirmLabel: 'Recaler' }))) return;
     setRecalageBusy(true);
     try {
       const r = await api.recalerLts();
