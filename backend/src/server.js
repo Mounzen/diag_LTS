@@ -3049,33 +3049,39 @@ function montantEstime(diagnostic) {
   return Math.round(m);
 }
 
-// Devis CDPGF (.xlsx) — désignations issues du diagnostic, prix laissés vides
-app.get('/api/exports/cdpgf/logement/:id.xlsx', async (req, res, next) => {
+// Devis CDPGF (.xlsx) — désignations issues du diagnostic, prix laissés vides.
+// Approche par gabarit + placeholders (pizzip) : le logo et la mise en forme du
+// gabarit ne sont jamais retouchés, on ne remplace que le texte des cellules.
+app.get('/api/exports/cdpgf/logement/:id.xlsx', (req, res, next) => {
   try {
     const db = loadDb();
     const logement = db.logements.find((l) => l.id === req.params.id);
     if (!logement) return res.status(404).json({ message: 'Logement introuvable' });
     const latest = latestDiagnosticForLogement(db, logement.id);
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.readFile(path.join(TEMPLATES_DIR, 'CDPGF_template.xlsx'));
-    const ws = wb.getWorksheet('CDPGF') || wb.worksheets[0];
-    ws.getCell('A6').value = `LOGEMENT LTS ${logement.nom_lts || ''}\nN° ${logement.adresse || ''}\n`;
     const items = itemsTravaux(latest);
-    const START = 11, MAXR = 24;
-    items.slice(0, MAXR).forEach((it, i) => {
-      const r = START + i;
-      ws.getCell(`A${r}`).value = i + 1;
-      ws.getCell(`B${r}`).value = cdpgfDesignation(it);
-      ws.getCell(`C${r}`).value = it.unite || 'forfait';
-      ws.getCell(`D${r}`).value = it.quantite || 1;
-    });
-    for (let r = START + Math.min(items.length, MAXR); r < START + MAXR; r++) {
-      ['A', 'B', 'C', 'D', 'E', 'F'].forEach((c) => { ws.getCell(`${c}${r}`).value = null; });
+    const MAXR = 24;
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const content = fs.readFileSync(path.join(TEMPLATES_DIR, 'CDPGF_template.xlsx'));
+    const zip = new PizZip(content);
+    let xml = zip.file('xl/worksheets/sheet1.xml').asText();
+    xml = xml.split('{{HEADER}}').join(esc(`LOGEMENT LTS ${logement.nom_lts || ''}\nN° ${logement.adresse || ''}\n`));
+    for (let i = 1; i <= MAXR; i++) {
+      const it = items[i - 1];
+      if (it) {
+        xml = xml.split(`{{R${i}}}`).join(String(i))
+                 .split(`{{DES${i}}}`).join(esc(cdpgfDesignation(it)))
+                 .split(`{{U${i}}}`).join(esc(it.unite || 'forfait'))
+                 .split(`{{Q${i}}}`).join(String(it.quantite || 1));
+      } else {
+        xml = xml.split(`{{R${i}}}`).join('').split(`{{DES${i}}}`).join('')
+                 .split(`{{U${i}}}`).join('').split(`{{Q${i}}}`).join('');
+      }
     }
-    const buf = await wb.xlsx.writeBuffer();
+    zip.file('xl/worksheets/sheet1.xml', xml);
+    const buf = zip.generate({ type: 'nodebuffer' });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="CDPGF-${logement.code_acces}.xlsx"`);
-    res.send(Buffer.from(buf));
+    res.send(buf);
   } catch (err) { next(err); }
 });
 
