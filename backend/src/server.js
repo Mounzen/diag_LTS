@@ -21,6 +21,7 @@ import {
   createPiece
 } from '../config/configurationLogement.js';
 import { ensureDataDirectories, loadDb, reloadDb, loadReferentiel, saveDb, setSaveCallback, uploadDir, dbPath, root } from './services/storeService.js';
+import * as logementsRepo from './services/logementsRepository.js';
 import { redigerSyntheseExecutive } from './services/aiRedactionService.js';
 import { generateLogementPdf } from './services/pdfReportService.js';
 import { authRoutes } from './routes/authRoutes.js';
@@ -367,6 +368,17 @@ function insertJournalToPg(entry) {
   }).then(({ error }) => {
     if (error) console.error('[Journal/PG] insert échec:', error.message);
   }, (err) => console.error('[Journal/PG] insert échec:', err.message));
+}
+
+// Phase 2 — Tranche logements : miroir best-effort de chaque écriture de logement
+// vers la table dédiée (écriture par ligne). Le blob reste la source de lecture
+// pour l'instant ; cette synchro alimente/maintient la table en vue de basculer
+// les lectures. Best-effort : aucune erreur ne remonte à l'utilisateur.
+function upsertLogementToPg(logement) {
+  if (!supabase || !logement?.id) return;
+  logementsRepo.upsertLogement(supabase, logement).then(({ ok, error }) => {
+    if (!ok && error) console.error('[Logements/PG] upsert échec:', error);
+  }, (err) => console.error('[Logements/PG] upsert échec:', err.message));
 }
 
 function appendJournal(db, action, details = {}) {
@@ -1028,6 +1040,7 @@ app.post('/api/logements', (req, res) => {
   db.logements.push(logement);
   appendJournal(db, 'logement_cree', { logementId: id, code_lts: codeLts, adresse, par: body.agentId || body.par || null });
   saveDb(db);
+  upsertLogementToPg(logement);
   res.status(201).json(logement);
 });
 
@@ -1160,6 +1173,7 @@ app.put('/api/logements/:id/patrimoine', (req, res) => {
     statutPatrimonial
   });
   saveDb(db);
+  upsertLogementToPg(db.logements[index]);
   res.json(db.logements[index]);
 });
 
@@ -2055,6 +2069,7 @@ app.put('/api/logements/:id/conformite', (req, res) => {
     agentId: req.body.agentId || null
   });
   saveDb(db);
+  upsertLogementToPg(logement);
   res.json(logement.conformite);
 });
 
@@ -2486,6 +2501,7 @@ app.post('/api/logements/:id/geocode', async (req, res, next) => {
     }
     logement.geocodeAt = new Date().toISOString();
     saveDb(db);
+    upsertLogementToPg(logement);
     res.json({ id: logement.id, latitude: logement.latitude, longitude: logement.longitude });
   } catch (err) { next(err); }
 });
@@ -2871,6 +2887,7 @@ app.put('/api/logements/:id/caracteristiques', (req, res) => {
     agentId: req.body.agentId || null
   });
   saveDb(db);
+  upsertLogementToPg(logement);
   res.json({ etage: logement.etage, couverture: logement.couverture, hasCours: logement.hasCours });
 });
 
@@ -3133,6 +3150,19 @@ async function startServer() {
       await loadDbFromSupabase();
       await syncDbToPostgres(loadDb());
     }
+  }
+  // Backfill initial de la table `logements` depuis le blob si elle est vide
+  // (table absente => count null => ignoré silencieusement).
+  if (supabase) {
+    try {
+      const n = await logementsRepo.countLogements(supabase);
+      if (n === 0) {
+        const r = await logementsRepo.backfillLogements(supabase, loadDb().logements || []);
+        console.log(`[Logements/PG] backfill initial: ${r.count} logements`);
+      } else if (n != null) {
+        console.log(`[Logements/PG] table logements déjà peuplée (${n} lignes)`);
+      }
+    } catch (err) { console.error('[Logements/PG] backfill ignoré:', err.message); }
   }
   app.listen(PORT, () => console.log(`DIAG-LTS API sur http://localhost:${PORT}`));
 }
