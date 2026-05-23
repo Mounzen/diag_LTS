@@ -18,7 +18,8 @@ import {
   buildDiagnosticItemsFromConfiguration,
   configurationMeta,
   createDefaultConfiguration,
-  createPiece
+  createPiece,
+  ensureConfigurationCollections
 } from '../config/configurationLogement.js';
 import { ensureDataDirectories, loadDb, reloadDb, loadReferentiel, saveDb, setSaveCallback, uploadDir, dbPath, root } from './services/storeService.js';
 import * as logementsRepo from './services/logementsRepository.js';
@@ -1059,9 +1060,13 @@ app.post('/api/logements', (req, res) => {
   };
 
   db.logements.push(logement);
+  // Génère immédiatement la configuration + les pièces par défaut du nouveau
+  // logement (au lieu d'attendre le prochain redémarrage), pour les miroiter.
+  ensureConfigurationCollections(db);
   appendJournal(db, 'logement_cree', { logementId: id, code_lts: codeLts, adresse, par: body.agentId || body.par || null });
   saveDb(db);
   upsertLogementToPg(logement);
+  for (const pc of db.pieces_logement.filter((p) => p.logementId === logement.id)) upsertPieceToPg(pc);
   res.status(201).json(logement);
 });
 
