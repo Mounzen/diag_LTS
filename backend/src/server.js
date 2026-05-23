@@ -256,13 +256,41 @@ async function syncDbToPostgres(db) {
 // Storage à chaque save : deux sérialisations de ~4-6 Mo en parallèle faisaient
 // dépasser les 512 Mo de RAM sur Render (OOM). Storage ne sert que de filet si
 // Postgres échoue ; le backup quotidien daté reste actif par ailleurs.
-async function persistDb(db) {
+// Persistance app_state DEBOUNCEE : le blob complet (~4 Mo) n'est plus uploade a
+// CHAQUE saveDb. L'autosave declenchait un upload de 4 Mo a chaque fois -> explosion
+// de la bande passante Render. Les donnees chaudes sont deja persistees ligne par
+// ligne (dual-write Phase 2) ; ici on ne garde qu'un SNAPSHOT periodique complet
+// pour la restauration au demarrage.
+const PERSIST_INTERVAL_MS = Number(process.env.PERSIST_INTERVAL_MS || 30000);
+let persistTimer = null;
+let lastPersistAt = 0;
+let persistDirty = false;
+
+async function flushPersist() {
+  if (!persistDirty) return;
+  persistDirty = false;
+  lastPersistAt = Date.now();
+  const db = loadDb();
   const ok = await syncDbToPostgres(db);
   if (!ok) await syncDbToSupabase(db);
 }
 
-// Enregistrer le callback de sync sur chaque saveDb
+function persistDb() {
+  persistDirty = true;
+  if (persistTimer) return;
+  const wait = Math.max(0, PERSIST_INTERVAL_MS - (Date.now() - lastPersistAt));
+  persistTimer = setTimeout(() => { persistTimer = null; flushPersist(); }, wait);
+}
+
+// Enregistrer le callback de sync sur chaque saveDb (planifie un snapshot debounce)
 setSaveCallback(persistDb);
+
+// Flush best-effort a l'arret (Render envoie SIGTERM au redeploiement / mise en veille).
+if (process.env.NODE_ENV !== 'test') {
+  for (const sig of ['SIGTERM', 'SIGINT']) {
+    process.on(sig, () => { flushPersist().finally(() => process.exit(0)); });
+  }
+}
 
 
 const DIAGNOSTIC_TEMPLATE = [
@@ -924,6 +952,13 @@ async function removeUploadedFile(filename) {
   }
 }
 
+// Compression gzip : divise par ~10 l'egress des reponses JSON (bande passante Render).
+try {
+  const { default: compression } = await import('compression');
+  app.use(compression());
+} catch (err) {
+  console.warn('[compression] module indisponible, reponses non compressees:', err.message);
+}
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use('/uploads', express.static(uploadDir));

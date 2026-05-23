@@ -197,7 +197,7 @@ export default function DiagnosticEditor({ user, meta, logement, diagnostic, onB
 
   useEffect(() => {
     if (!dirty) return undefined;
-    const timer = setTimeout(() => saveDraft('auto', draftRef.current), 3500);
+    const timer = setTimeout(() => saveDraft('auto', draftRef.current), 10000);
     return () => clearTimeout(timer);
   }, [dirty, draft]);
 
