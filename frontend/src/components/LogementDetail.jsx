@@ -106,8 +106,6 @@ export default function LogementDetail({ detail, meta, user, onUpdated, onStart,
         <button className="secondary" onClick={() => setShowDevisForm(true)}><Plus size={18} /> Créer un devis</button>
         <a className="button primary" href={exportUrl(`/api/exports/logement/${logement.id}.pdf.pro`)} title="PDF natif pro avec page de garde, sommaire et numérotation"><FileText size={18} /> Rapport PDF complet</a>
         <a className="button secondary" href={exportUrl(`/api/exports/logement/${logement.id}.pdf`)} target="_blank" rel="noreferrer" title="Version HTML imprimable"><FileText size={18} /> Aperçu HTML</a>
-        <a className="button secondary" href={exportUrl(`/api/exports/consultation/logement/${logement.id}.pdf`)} target="_blank" rel="noreferrer" title="PDF de consultation entreprise sans prix"><FileText size={18} /> Consultation entreprise PDF</a>
-        <a className="button secondary" href={exportUrl(`/api/exports/consultation/logement/${logement.id}.xlsx`)} title="Excel de consultation entreprise sans prix"><FileText size={18} /> Consultation entreprise Excel</a>
         <a className="button primary" href={api.cdpgfUrl(logement.id)} title="Devis CDPGF (format mairie) prérempli depuis le diagnostic — prix à compléter par l'entreprise, fichier Excel modifiable"><FileText size={18} /> Devis CDPGF (entreprise)</a>
         <a className="button primary" href={api.ficheTracabiliteUrl(logement.id)} title="Fiche de traçabilité (achat décentralisé) préremplie : description, montant estimé HT, entreprise — fichier Word modifiable"><FileText size={18} /> Fiche traçabilité</a>
         <a className="button secondary" href={exportUrl(`/api/exports/lts/${logement.code_lts}.pdf`)} target="_blank" rel="noreferrer"><FileText size={18} /> Export PDF LTS</a>
@@ -155,3 +153,4 @@ export default function LogementDetail({ detail, meta, user, onUpdated, onStart,
     </div>
   );
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
